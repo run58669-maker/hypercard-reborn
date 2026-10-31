@@ -1,0 +1,3 @@
+# Product
+
+HyperCard Reborn is a web revival of HyperCard. A user describes a card's behavior in natural language; an LLM compiles that description exactly once into a small HyperTalk-subset script, and the script is stored on the card. At runtime the LLM is never called: only the stored script runs, executed by our own interpreter. Every card can be flipped to show the natural-language description and the script side by side; the script is editable, and the card re-runs immediately after an edit. For this hackathon, scope is limited to the flip action (the flip-card view, its compile-once pipeline, and edit-and-rerun) and nothing beyond it.
