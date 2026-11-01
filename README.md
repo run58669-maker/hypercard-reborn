@@ -25,12 +25,13 @@ cards), and edit-and-rerun.
 Specification complete, implementation not started. See:
 
 - `.kiro/steering/product.md` and `.kiro/steering/tech.md` for scope and stack rules
-- `.kiro/specs/flip-card/requirements.md`, `design.md`, `tasks.md` for the spec
+- `.kiro/specs/flip-card/requirements.md`, `design.md`, `tasks.md` for the spec, and `examples/` for the six bundled cards
+- `docs/REVIEW.md` for the judge-style self-review and the fixes it led to
 - `docs/grammar.md` for the language and the six example cards
 
-## Running (stub)
+## Running
 
-The commands below are the contract the implementation tasks will fulfil. None of them work yet.
+The commands below are the contract the implementation tasks fulfil (task 1.1 onward). Until task 1 is executed, none of them work yet.
 
 ```bash
 npm install
@@ -48,13 +49,45 @@ Compile providers:
   `api.anthropic.com`. The app calls `claude-haiku-5-5` from the browser, which means the
   key is visible to the page: use a personal key on a personal machine.
 
-## Working with Kiro (stub)
+## Working with Kiro
 
-- Steering files in `.kiro/steering/` are loaded into every Kiro session.
-- The spec lives in `.kiro/specs/flip-card/`. Open `tasks.md` in Kiro and run tasks in order; each task lists the acceptance criteria it covers.
-- Hooks in `.kiro/hooks/`:
-  - `parser-tests.kiro.hook` runs the parser tests (including property tests) when anything under `src/parser/` changes.
-  - `grammar-examples-consistency.kiro.hook` keeps `docs/grammar.md`, `src/examples/` and the compile prompt in agreement.
+This project is spec-driven: the `.kiro/` directory is the product, the code is what
+Kiro produces from it. `.kiro/steering/kiro-usage.md` is the long version; this is the short one.
+
+**Spec** (`.kiro/specs/flip-card/`)
+
+| File | What it holds |
+|---|---|
+| `requirements.md` | 4 requirements, 14 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
+| `design.md` | Module boundaries, the one invariant (`Card.script` is the only executable artefact), every public type, every parse and runtime error message, the six seeded card layouts, the `data-testid` contract, assumptions taken where the requirements leave room. |
+| `tasks.md` | 14 groups, 47 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
+| `examples/<id>.hc/` | The six bundled cards as `description.txt` + `script.hc`, byte-identical to `docs/grammar.md` §8. The app imports these files directly. |
+
+`docs/grammar.md` is the language definition everything derives from: the parser
+implements it, the compile prompt embeds it, the examples are checked against it.
+
+**Hooks** (`.kiro/hooks/`)
+
+| Hook | Fires on | Does |
+|---|---|---|
+| `parser-tests.kiro.hook` | edit under `src/parser/` | runs the parser unit + fast-check property tests, fixes without weakening tests, checks the grammar still matches |
+| `grammar-examples-consistency.kiro.hook` | edit to `docs/grammar.md`, the spec examples, `src/examples/`, the compile prompt | keeps the four byte-for-byte in agreement, reports EBNF vs lexer drift |
+| `pre-commit-tests.kiro.hook` | any shell command (`preToolUse`) | if the command is a `git commit`, runs `npm test` first and blocks the commit on failure (exit code 2) |
+
+**Steering** (`.kiro/steering/`)
+
+- `product.md` (always): the scope, one paragraph.
+- `tech.md` (always): stack, ESLint-enforced module boundaries, invariants, Claude API rules.
+- `kiro-usage.md` (always): the workflow, what is property-tested, what was deliberately not vibe-coded.
+- `testing.md` (`fileMatch` on test files): fast-check and Playwright conventions.
+
+**Property-based testing.** Every invariant in `tech.md` has a fast-check property named
+in `tasks.md`: `parse()` never throws, lossless lexing, print/parse round trip, byte
+identity through the store and the runtime, arithmetic against a reference evaluator.
+
+**Not vibe-coded.** The grammar, the six examples, the error messages, the single
+compile call and the no-LLM-at-runtime guarantee were written and reviewed by hand in the
+spec first. Kiro implements them; the hooks and tests hold it to the spec.
 
 ## License
 

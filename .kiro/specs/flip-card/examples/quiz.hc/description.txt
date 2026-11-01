@@ -1,0 +1,1 @@
+The card shows the question "What is 2 + 2?" in field "question" when it opens, with a field "answer" for the user to type into and a button "Check". When Check is clicked, if the answer is 4, answer "Correct!" and go to card 2; otherwise answer "Try again."

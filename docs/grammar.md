@@ -4,8 +4,8 @@ This document is the single source of truth for the language that HyperCard Rebo
 cards speak. The parser in `src/parser/` implements exactly this grammar, the
 compile prompt embeds this file verbatim, and the six example scripts at the
 bottom are the bundled examples that the offline canned compiler serves
-(`src/examples/`). A Kiro hook keeps the examples here and in `src/examples/`
-byte-identical.
+(`.kiro/specs/flip-card/examples/`, imported by `src/examples/`). A Kiro hook keeps
+the examples here and there byte-identical.
 
 Design goals, in priority order:
 
@@ -34,6 +34,13 @@ whitespace      = " " | "\t" ;
 - String literals contain **no escape sequences**. To include a double quote, use `quote` (see §5).
 - A `--` comment runs to end of line and may also follow a statement on the same line.
 - Statements end at a newline. There is no statement separator and no line continuation.
+- **End of input counts as a newline** wherever the grammar requires one, so a script
+  without a trailing newline parses the same as one with it. The bundled examples end
+  with exactly one newline.
+- Operators lex by longest match: `&&` is one token, never two `&`; `<=`, `>=` and `<>`
+  are single tokens.
+- Any character that is not whitespace, a newline, part of a token above or inside a
+  string is a parse error (`unexpected character "~"`).
 - The `down` keyword is reserved only in the phrase `down to`.
 - Reserved words (cannot be used as variable names): `on end if then else repeat with to down times while forever put into set get go card field button show hide answer the and or not is div mod true false quote empty return`.
 
@@ -45,8 +52,11 @@ handler         = "on" handler_name newline
                   "end" handler_name newline ;
 
 handler_name    = "mouseUp" | "openCard" ;
-statements      = { statement newline } ;
+statements      = { blank_line | comment_line | statement newline } ;
 ```
+
+- Blank lines and comment-only lines may appear anywhere statements may, inside a
+  handler as well as between handlers.
 
 - A script contains at most one handler of each name. A second `on mouseUp` is a parse error.
 - `end` must name the same handler as the matching `on` (`end mouseUp` closes `on mouseUp`).
@@ -72,6 +82,8 @@ if_stmt         = "if" expression "then" newline
                   "end" "if"
                 | "if" expression "then" statement
                   [ newline "else" statement ] ;                   (* single-line form *)
+                  (* the statement after "then" or "else" in the single-line form
+                     must not itself be an if_stmt or a repeat_stmt *)
 
 repeat_stmt     = "repeat" repeat_head newline
                     statements
@@ -95,7 +107,15 @@ property        = "visible" | "enabled" | "name" ;
 Notes:
 
 - Variables are handler-local and untyped. Reading an unset variable yields its own
-  name as a string, exactly as in HyperCard (`put x` with no `x` puts `"x"`).
+  name as a string, exactly as in HyperCard (`put x` with no `x` puts `"x"`). Variable
+  names are case-insensitive (`Total` and `total` are the same variable); the string an
+  unset variable yields is the name as spelled at the reading site.
+- The two `if` forms are told apart by what follows `then`: a newline means the block
+  form (which must end with `end if`), anything else means the single-line form. A
+  single-line `if` may be followed on the very next line by `else` and one statement;
+  that `else` belongs to the single-line `if`, never to an enclosing block `if`.
+- A reserved word (§1) where a variable name is expected is a parse error
+  (`expected a variable name, found "end"`).
 - `put ... into field "name"` sets the field's text. `put ... into button "name"` is a
   parse error (buttons are not containers; use `set name of button ...`).
 - `set visible of field "x" to false` is equivalent to `hide field "x"`.
@@ -133,19 +153,46 @@ Semantics:
   operands to numbers, and it is a runtime error if either is not numeric.
   `/` on zero is a runtime error. Results are rendered with up to 6 decimals, with
   trailing zeros removed (`10 / 4` is `2.5`, `4 / 2` is `2`).
+- **Numeric** means: after removing leading and trailing spaces and tabs, the string
+  matches `-?[0-9]+(\.[0-9]+)?`. Nothing else is numeric (`1.`, `.5`, `1e3`, `+1` and
+  the empty string are not). Conversion is exact decimal to IEEE double. A result that
+  is not finite is a runtime error.
+- `div` truncates toward zero (`-7 div 2` is `-3`); `mod` takes the sign of the left
+  operand (`-7 mod 2` is `-1`, `7 mod -2` is `1`). `div` and `mod` by zero are runtime errors,
+  like `/`.
 - `&` concatenates; `&&` concatenates with a single space between.
 - `=` and `is` compare numerically when both sides are numeric, otherwise as
   case-insensitive strings. `<>` and `is not` are their negations. `< > <= >=`
-  follow the same numeric-or-string rule.
-- `and`, `or`, `not` require the strings `true` or `false`; anything else is a runtime error.
+  follow the same numeric-or-string rule; string order is the order of the lower-cased
+  UTF-16 code units. Comparisons yield the strings `true` or `false`.
+- After `is`, a following `not` always belongs to the operator: `a is not b` is a
+  negated comparison, never `a is (not b)`. Write `a is (not b)` if that is meant.
+- `and`, `or`, `not` require the strings `true` or `false` (case-insensitive); anything
+  else is a runtime error. Both operands of `and` and `or` are always evaluated, left to
+  right; there is no short-circuit. The result is the lower-case string `true` or `false`.
 - `empty` is the empty string. `quote` is the double-quote character. `return` is a
   single newline character (`\n`); it is the only way to put a line break in a value.
 - `repeat with i = a to b` counts up by 1 and runs zero times if `a > b`;
   `repeat with i = a down to b` counts down by 1 and runs zero times if `a < b`.
+  `a` and `b` are evaluated once, before the first iteration, and must be numeric. The
+  loop keeps its own counter and assigns it to `i` at the start of each iteration, so
+  writing to `i` inside the body does not change how many times the loop runs. After the
+  loop, `i` holds the value of the last iteration (or is untouched if there was none).
+- `repeat N times` evaluates `N` once; it must be numeric; it is truncated toward zero
+  and anything below 1 runs the body zero times. `repeat while e` evaluates `e` before
+  every iteration and `e` must be `true` or `false`.
 - `the date` is the host's date in the form `11/1/26` (month/day/two-digit year,
-  no padding). `the time` is `3:04 PM`. `the target` is the name of the button that
+  no padding). `the time` is `3:04 PM` (12-hour clock, hour unpadded from 1 to 12,
+  minute padded, `12:00 AM` at midnight). `the target` is the name of the button that
   received `mouseUp` (empty inside `openCard`). `it` is an ordinary variable that `get` writes.
-- Reading `field "x"` where no such field exists is a runtime error.
+- Reading `field "x"` where no such field exists is a runtime error. `button "x"` as an
+  expression yields the button's current name if it exists and is a runtime error otherwise.
+- Object names in `field "x"` / `button "x"` are matched case-insensitively against the
+  objects' **current** names (a button renamed with `set name of` is found under its new name).
+- `set visible of ... to e` and `set enabled of ... to e` require `e` to be `true` or
+  `false`. `enabled` exists on buttons only; on a field it is a runtime error. A disabled
+  button does not send `mouseUp`. `set name of ... to e` renames the object to the
+  value of `e`.
 
 ## 5. Built-ins summary
 
@@ -178,15 +225,23 @@ These keep the card UI responsive and are **not** part of the grammar.
 |---|---|
 | Statements executed per handler invocation | 10,000 (exceeding it is a runtime error: `script ran too long`) |
 | `repeat forever` | Allowed, but subject to the statement cap |
-| String length | 64 KiB per value |
+| String length | 64 KiB (65,536 UTF-16 code units) per value; exceeding it is the runtime error `value too long` |
+
+The complete list of runtime error messages lives in `.kiro/specs/flip-card/design.md` §5.4.
 
 ## 8. Example scripts
 
-These six examples are bundled with the app (`src/examples/`). Each natural-language
-description below is what a card author would type; each script is what the compiler
-must produce for it. The offline canned compiler maps the description to the script
-by normalised exact match (see `design.md` §6.3). Every example must parse, and the
-consistency hook verifies the scripts here and in `src/examples/` are byte-identical.
+These six examples are bundled with the app. Each natural-language description below
+is what a card author would type; each script is what the compiler must produce for it.
+The offline canned compiler maps the description to the script by normalised exact
+match (see `design.md` §6.3). Every example must parse.
+
+The machine-readable copy lives in `.kiro/specs/flip-card/examples/<id>.hc/`
+(`description.txt` is the text after **Description:**, with no trailing newline;
+`script.hc` is the body of the ```` ```hypertalk ```` fence, ending with exactly one
+newline). `src/examples/index.ts` imports those files with `?raw`, so the app ships
+these bytes. The consistency test and hook verify this section and that directory are
+byte-identical (extraction rule: `design.md` §6.7).
 
 ### Example 1: `hello`
 

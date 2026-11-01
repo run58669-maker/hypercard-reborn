@@ -1,0 +1,1 @@
+The card has a field "count" and a button "Increment". When the card opens, set the count to 0. When the button is clicked, add one to the count.
