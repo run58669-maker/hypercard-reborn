@@ -70,7 +70,7 @@ Ordered by judge impact divided by effort. **S** = spec-level, done in this sess
 |---|---|
 | `.kiro/specs/flip-card/requirements.md` | Glossary; Requirement 4 (4.1–4.3). Existing criteria untouched. |
 | `.kiro/specs/flip-card/design.md` | Rewritten: fixed module table, full type definitions, seeded layouts, parse/runtime/compile error tables, dialog and navigation semantics, app shell, `data-testid` contract, example extraction rule, assumptions list. |
-| `.kiro/specs/flip-card/tasks.md` | Rewritten into 45 one-execution sub-tasks with done-criteria and requirement refs. |
+| `.kiro/specs/flip-card/tasks.md` | Rewritten into 47 one-execution sub-tasks with done-criteria and requirement refs. |
 | `.kiro/specs/flip-card/examples/` | Six `<id>.hc/description.txt` + `script.hc` pairs, extracted by script from `docs/grammar.md` and diffed back byte-for-byte; a README with the rule. |
 | `docs/grammar.md` | Semantics tightened (see fix 2); §8 now names the examples directory. Example text unchanged. |
 | `.kiro/hooks/pre-commit-tests.kiro.hook`, `.kiro/hooks/scripts/pre-commit-tests.mjs` | New hook and its script. |
