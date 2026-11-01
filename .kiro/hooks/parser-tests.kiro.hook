@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Parser tests on parser change",
+  "description": "Runs the parser unit and fast-check property tests whenever a file under src/parser changes, and asks the agent to fix any failure without weakening the tests.",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "src/parser/**/*.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A file under src/parser/ changed. Run `npm test -- src/parser` (Vitest, includes the fast-check property tests: parse never throws, print/parse round trip, lossless lexing). If everything passes, reply with one line saying so. If anything fails: read the failing test and the diff, fix the parser so the test passes, and re-run. Do not delete, skip, loosen or shrink the number of runs of any property test, and do not change an expected error message in a snapshot unless docs/grammar.md section 6 was changed in the same edit. If the change adds or removes syntax, also check that docs/grammar.md section 2-4 still describes exactly what the parser accepts and say so explicitly in your reply."
+  }
+}
