@@ -279,7 +279,7 @@ after task 12 and complete after task 14.
     - A table of every acceptance criterion (1.1 … 4.3) with the unit/property test and the Playwright spec that covers it, by file and test name.
     - Done when: every criterion has at least one test, and a reviewer can run each named test alone.
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3_
-  - [ ] 14.3 Demo recording checklist
+  - [x] 14.3 Demo recording checklist
     - Files: `docs/demo.md`.
     - The exact clicks for a three-minute video, with what to say at each step and which spec section it demonstrates (compile once, flip, edit-and-rerun, parse error kept safe, no network).
     - Done when: the checklist has been run once against `npm run preview` without deviation.
