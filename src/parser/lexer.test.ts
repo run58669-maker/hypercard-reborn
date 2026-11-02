@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import fc from 'fast-check'
 import { lex, type Token } from './lexer'
 
 function tokensOf(source: string): Token[] {
@@ -162,5 +163,53 @@ describe('lex', () => {
       ok: false,
       error: { line: 1, column: 6, message: 'unexpected character "\r"' },
     })
+  })
+})
+
+describe('properties', () => {
+  // Strings built from the pieces the lexer cares about, so that the accepted
+  // branch of the lossless property is exercised often, plus fully arbitrary
+  // strings for the never-throws half.
+  const piece = fc.oneof(
+    fc.constantFrom(' ', '\t', '\n', '\r\n', '\r', '"', '--', '&&', '&', '<=', '<>', '-', '.', '~'),
+    fc.constantFrom('on', 'end', 'down', 'to', 'put', 'DOWN', 'Down to', 'mouseUp', 'x_1'),
+    fc.integer({ min: 0, max: 999 }).map(String),
+    fc.string({ maxLength: 4 }),
+  )
+  const sourceArb = fc.oneof(fc.string(), fc.array(piece, { maxLength: 12 }).map((parts) => parts.join('')))
+
+  it('never throws on arbitrary strings', () => {
+    fc.assert(
+      fc.property(fc.string(), (source) => {
+        expect(() => lex(source)).not.toThrow()
+      }),
+      { numRuns: 200 },
+    )
+  })
+
+  it('reproduces the input from trivia plus token text for every accepted string', () => {
+    fc.assert(
+      fc.property(sourceArb, (source) => {
+        const result = lex(source)
+        if (!result.ok) return
+        const rebuilt = result.tokens.map((t) => t.trivia + t.text).join('')
+        expect(rebuilt).toBe(source)
+      }),
+      { numRuns: 200 },
+    )
+  })
+
+  // Shrunk counter-examples found while writing the property, kept as named
+  // unit tests so the regression reads without fast-check.
+  it.each([
+    ['a comment with no newline', 'put 1 -- one'],
+    ['a comment containing a lone carriage return', '-- a\rb\nput 1'],
+    ['a trailing tab', 'put 1\t'],
+    ['a string containing a comment marker', '"--"'],
+    ['down at end of input', 'down'],
+  ])('reproduces %s', (_label, source) => {
+    const result = lex(source)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.tokens.map((t) => t.trivia + t.text).join('')).toBe(source)
   })
 })

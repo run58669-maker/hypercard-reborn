@@ -55,7 +55,7 @@ after task 12 and complete after task 14.
     - Unit tests: one `it.each` row per token class, comment at end of statement, `\r\n`, unterminated string, unknown character, `&&` vs `&`.
     - Done when: tests pass; the parser-tests hook reports green.
     - _Requirements: 1.4, 3.4_
-  - [ ] 2.3 Lossless-lexing property
+  - [x] 2.3 Lossless-lexing property
     - Files: `src/parser/lexer.test.ts`.
     - Property (fast-check, 200 runs): for arbitrary strings, `lex` never throws; for strings the lexer accepts, concatenating every token's `text` plus the skipped trivia the lexer records reproduces the input exactly.
     - Done when: the property passes at 200 runs and the shrunk counter-examples found while writing it are added as named unit tests.
