@@ -11,6 +11,7 @@ import { createFrontFace } from './frontFace'
 export interface CardViewDeps {
   readonly store: CardStore
   readonly runtime: CardRuntime
+  readonly now?: () => Date
 }
 
 export type Face = 'front' | 'back'
@@ -29,12 +30,18 @@ export interface CardView {
 
 export function createCardView(card: Card, deps: CardViewDeps): CardView {
   const front = createFrontFace()
-  const back = createBackFace(deps)
+  const back = createBackFace(deps, { cardId: card.id, ...(deps.now === undefined ? {} : { now: deps.now }) })
   const flip = el('button', { class: 'flip', testid: 'flip', text: 'Flip', title: 'Flip the card' })
   const faces = el('div', { class: 'card-faces' }, [front.element, back.element])
   const element = el('article', { class: 'card', testid: 'card' }, [el('div', { class: 'card-toolbar' }, [flip]), faces])
 
   const latest = (): Card => deps.store.getCard(card.id) ?? card
+
+  // Mirror the front-face status line on the back face (design.md §9).
+  const statusObserver = new MutationObserver(() => {
+    back.setStatus(front.mount.statusLine.textContent ?? '')
+  })
+  statusObserver.observe(front.mount.statusLine, { childList: true, characterData: true, subtree: true })
 
   function setFace(face: Face): void {
     element.dataset['face'] = face
@@ -76,6 +83,7 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
       }
     },
     dispose() {
+      statusObserver.disconnect()
       unsubscribe()
       deps.runtime.unmount(card.id)
       element.remove()

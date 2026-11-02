@@ -223,7 +223,7 @@ after task 12 and complete after task 14.
     - _Requirements: 2.1, 2.2, 2.3_
 
 - [ ] 11. Script editor
-  - [ ] 11.1 Editor, commit and parse-error panel
+  - [x] 11.1 Editor, commit and parse-error panel
     - Files: `src/ui/editor.ts`, `src/ui/errorPanel.ts`, `src/ui/editor.test.ts`.
     - Draft state from `card.script` on first flip, Commit button and Ctrl/Cmd+Enter, no commit on blur, no-op when draft equals stored; on success clear the panel and `runtime.rerun(card)`; on failure show `line:column`, message and `near`, highlight the line, keep the draft. No import of `src/compile/`.
     - Done when: jsdom tests cover success, failure, no-op and the shortcut; `npm run lint` passes.

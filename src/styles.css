@@ -280,3 +280,50 @@ input:focus-visible {
   color: var(--line);
   font-size: 0.85rem;
 }
+
+/* --- Editor and error panels ---------------------------------------------- */
+
+.editor-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.editor-heading h3 {
+  margin: 0;
+}
+
+.script-editor {
+  white-space: pre;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.stored-block {
+  margin-top: 12px;
+}
+
+.error-panel {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--error);
+  border-radius: 6px;
+  background: #fff4f4;
+  color: var(--error);
+}
+
+.error-panel p {
+  margin: 0;
+}
+
+.error-near {
+  margin: 6px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre;
+  overflow: auto;
+}
+
+.status-mirror {
+  margin-top: 8px;
+}
