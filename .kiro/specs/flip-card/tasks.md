@@ -114,7 +114,7 @@ after task 12 and complete after task 14.
     - `run(program, handler, host, { target })` per `design.md` §5.2: handler lookup, locals, `it`, `put`/`set`/`get`, both `if` forms, all `repeat` forms with the counter rule, `answer`, `go to card` (recorded), `show`/`hide`, `set visible|enabled|name`, 10,000-statement budget, every message from `design.md` §5.4.
     - Done when: a test per row of §5.4 asserts the exact message; `repeat forever` with no body ends with `script ran too long` after exactly 10,000 statements; a missing handler returns `{ ok: true, statements: 0 }`.
     - _Requirements: 1.2, 1.3_
-  - [ ] 4.5 The six examples against FakeHost
+  - [x] 4.5 The six examples against FakeHost
     - Files: `src/interpreter/examples.test.ts`.
     - For each example: build a `FakeHost` from its `design.md` §3.2 layout, run `openCard`, then the button clicks a demo would make (counter ×3, greeter with empty and non-empty name, quiz with `4` and `5`, countdown), and assert exact field text, dialogs and navigations (quiz with `4` → dialog `Correct!`, navigation `2`).
     - Done when: all assertions pass and the countdown field equals `"10\n9\n8\n7\n6\n5\n4\n3\n2\n1\nLiftoff!"`.
