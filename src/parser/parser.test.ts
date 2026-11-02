@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
+import countdownScript from '../../.kiro/specs/flip-card/examples/countdown.hc/script.hc?raw'
+import counterScript from '../../.kiro/specs/flip-card/examples/counter.hc/script.hc?raw'
+import dateStampScript from '../../.kiro/specs/flip-card/examples/date-stamp.hc/script.hc?raw'
+import greeterScript from '../../.kiro/specs/flip-card/examples/greeter.hc/script.hc?raw'
 import helloScript from '../../.kiro/specs/flip-card/examples/hello.hc/script.hc?raw'
+import quizScript from '../../.kiro/specs/flip-card/examples/quiz.hc/script.hc?raw'
+
+const EXAMPLE_SCRIPTS: Record<string, string> = {
+  hello: helloScript,
+  counter: counterScript,
+  'date-stamp': dateStampScript,
+  greeter: greeterScript,
+  countdown: countdownScript,
+  quiz: quizScript,
+}
 import { parse } from './parser'
 
 function program(source: string) {
@@ -108,5 +122,93 @@ describe('parse', () => {
   ])('reports %j', (source, expected) => {
     const wrapped = source.startsWith('on ') || source === 'put 1' ? source : `on mouseUp\n  ${source}\nend mouseUp\n`
     expect(error(wrapped)).toEqual(expected)
+  })
+})
+
+describe('if and repeat', () => {
+  it.each(Object.keys(EXAMPLE_SCRIPTS))('parses the %s example', (id) => {
+    const source = EXAMPLE_SCRIPTS[id] as string
+    const result = parse(source)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.program.source).toBe(source)
+  })
+
+  it('parses the block form with else', () => {
+    const p = program('on mouseUp\n  if x then\n    put 1\n  else\n    put 2\n    put 3\n  end if\nend mouseUp\n')
+    expect(p.handlers[0]?.body[0]).toMatchObject({
+      kind: 'if',
+      form: 'block',
+      condition: { kind: 'variable', name: 'x' },
+      then: [{ kind: 'put' }],
+      else: [{ kind: 'put' }, { kind: 'put' }],
+    })
+  })
+
+  it('parses the block form without else', () => {
+    const p = program('on mouseUp\n  if x then\n  end if\nend mouseUp\n')
+    expect(p.handlers[0]?.body[0]).toMatchObject({ kind: 'if', form: 'block', then: [], else: null })
+  })
+
+  it('parses the single-line form with and without else on the next line', () => {
+    const p = program('on mouseUp\n  if x then put 1\n  else put 2\n  if y then put 3\n  put 4\nend mouseUp\n')
+    expect(p.handlers[0]?.body).toMatchObject([
+      { kind: 'if', form: 'single', then: [{ kind: 'put', value: { text: '1' } }], else: [{ kind: 'put', value: { text: '2' } }] },
+      { kind: 'if', form: 'single', then: [{ kind: 'put', value: { text: '3' } }], else: null },
+      { kind: 'put', value: { text: '4' } },
+    ])
+  })
+
+  it('gives a next-line else to the single-line if, not to the enclosing block if', () => {
+    const p = program('on mouseUp\n  if a then\n    if b then put 1\n    else put 2\n  end if\nend mouseUp\n')
+    expect(p.handlers[0]?.body[0]).toMatchObject({
+      kind: 'if',
+      form: 'block',
+      then: [{ kind: 'if', form: 'single', else: [{ kind: 'put' }] }],
+      else: null,
+    })
+  })
+
+  it('tells the forms apart by what follows then, including a comment', () => {
+    const p = program('on mouseUp\n  if x then -- block\n    put 1\n  end if\nend mouseUp\n')
+    expect(p.handlers[0]?.body[0]).toMatchObject({ kind: 'if', form: 'block' })
+  })
+
+  it.each([
+    ['if x then if y then put 1', { line: 2, column: 13, message: 'a single-line if cannot contain "if" or "repeat"' }],
+    ['if x then repeat forever\n  end repeat', { line: 2, column: 13, message: 'a single-line if cannot contain "if" or "repeat"' }],
+    ['if x then put 1\n  else if y then put 2', { line: 3, column: 8, message: 'a single-line if cannot contain "if" or "repeat"' }],
+    ['if x\n  end if', { line: 2, column: 7, message: 'expected "then", found newline' }],
+    ['if x then\n    put 1', { line: 4, column: 5, message: 'expected "end if", found "end mouseUp"' }],
+    ['if x then\n  end repeat', { line: 3, column: 7, message: 'expected "end if", found "end repeat"' }],
+    ['repeat forever\n  end if', { line: 3, column: 7, message: 'expected "end repeat", found "end if"' }],
+    ['if x then\n  end', { line: 3, column: 6, message: 'expected "end if", found newline' }],
+    ['repeat with end = 1 to 2\n  end repeat', { line: 2, column: 15, message: 'expected a variable name, found "end"' }],
+    ['repeat with i 1 to 2\n  end repeat', { line: 2, column: 17, message: 'expected "=", found "1"' }],
+    ['repeat with i = 1 2\n  end repeat', { line: 2, column: 21, message: 'expected "to" or "down to", found "2"' }],
+    ['repeat 3\n  end repeat', { line: 2, column: 11, message: 'expected "times", found newline' }],
+    ['repeat\n  end repeat', { line: 2, column: 9, message: 'expected an expression, found newline' }],
+  ])('reports %j', (source, expected) => {
+    expect(error(`on mouseUp\n  ${source}\nend mouseUp\n`)).toMatchObject(expected)
+  })
+
+  it.each([
+    ['repeat 3 times', { kind: 'times', count: { kind: 'number', text: '3' } }],
+    ['repeat with i = 1 to 3', { kind: 'with', variable: 'i', direction: 'up', from: { text: '1' }, to: { text: '3' } }],
+    ['repeat with i = 3 down to 1', { kind: 'with', variable: 'i', direction: 'down', from: { text: '3' }, to: { text: '1' } }],
+    ['repeat while x', { kind: 'while', condition: { kind: 'variable', name: 'x' } }],
+    ['repeat forever', { kind: 'forever' }],
+  ])('parses the head of %j', (head, expected) => {
+    const p = program(`on mouseUp\n  ${head}\n    put 1\n  end repeat\nend mouseUp\n`)
+    expect(p.handlers[0]?.body[0]).toMatchObject({ kind: 'repeat', head: expected, body: [{ kind: 'put' }] })
+  })
+
+  it('produces distinct heads for to and down to', () => {
+    const up = program('on mouseUp\n  repeat with i = 1 to 3\n  end repeat\nend mouseUp\n')
+    const down = program('on mouseUp\n  repeat with i = 1 down to 3\n  end repeat\nend mouseUp\n')
+    const upHead = (up.handlers[0]?.body[0] as { head: unknown }).head
+    const downHead = (down.handlers[0]?.body[0] as { head: unknown }).head
+    expect(upHead).not.toEqual(downHead)
+    expect(upHead).toMatchObject({ direction: 'up' })
+    expect(downHead).toMatchObject({ direction: 'down' })
   })
 })

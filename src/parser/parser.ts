@@ -5,8 +5,11 @@ import type {
   Container,
   Handler,
   HandlerName,
+  IfStatement,
   ObjectRef,
   Property,
+  RepeatHead,
+  RepeatStatement,
   Statement,
 } from './ast'
 import type { ParseResult } from './errors'
@@ -132,9 +135,105 @@ function parseStatement(cursor: Cursor): Statement {
       cursor.next()
       return { kind: 'hide', object: parseObjectRef(cursor), ...position }
     }
+    case 'if':
+      return parseIf(cursor)
+    case 'repeat':
+      return parseRepeat(cursor)
     default:
       return cursor.expected('a statement')
   }
+}
+
+/**
+ * Both `if` forms (grammar §3). A newline after `then` means the block form,
+ * which ends with `end if`; anything else is the single-line form, whose
+ * optional `else` must be on the very next line and belongs to this `if`.
+ */
+function parseIf(cursor: Cursor): IfStatement {
+  const ifToken = cursor.next()
+  const position = { line: ifToken.line, column: ifToken.column }
+  const condition = parseExpression(cursor)
+  cursor.expectKeyword('then')
+  if (cursor.peek().kind === 'newline') {
+    cursor.next()
+    const thenBody = parseStatements(cursor, 'end if', true)
+    let elseBody: Statement[] | null = null
+    if (cursor.isKeyword('else')) {
+      cursor.next()
+      cursor.expectNewline()
+      elseBody = parseStatements(cursor, 'end if', false)
+    }
+    expectEnd(cursor, 'if')
+    return { kind: 'if', form: 'block', condition, then: thenBody, else: elseBody, ...position }
+  }
+  const thenStatement = parseSingleLineBranch(cursor)
+  let elseBody: Statement[] | null = null
+  if (cursor.peek().kind === 'newline' && cursor.isKeyword('else', cursor.peek(1))) {
+    cursor.next()
+    cursor.next()
+    elseBody = [parseSingleLineBranch(cursor)]
+  }
+  return { kind: 'if', form: 'single', condition, then: [thenStatement], else: elseBody, ...position }
+}
+
+/** The one statement after `then` or `else` in the single-line form. */
+function parseSingleLineBranch(cursor: Cursor): Statement {
+  if (cursor.isKeyword('if') || cursor.isKeyword('repeat')) {
+    cursor.fail('a single-line if cannot contain "if" or "repeat"')
+  }
+  return parseStatement(cursor)
+}
+
+/** `end <word>` where the cursor is on `end`; the error names what was expected. */
+function expectEnd(cursor: Cursor, word: 'if' | 'repeat'): void {
+  cursor.next() // `end`, guaranteed by parseStatements
+  const closer = cursor.peek()
+  if (!cursor.isKeyword(word)) {
+    if (closer.kind === 'identifier' || closer.kind === 'keyword') {
+      cursor.fail(`expected "end ${word}", found "end ${closer.text}"`, closer)
+    }
+    cursor.expected(`"end ${word}"`)
+  }
+  cursor.next()
+}
+
+function parseRepeat(cursor: Cursor): RepeatStatement {
+  const repeatToken = cursor.next()
+  const head = parseRepeatHead(cursor)
+  cursor.expectNewline()
+  const body = parseStatements(cursor, 'end repeat', false)
+  expectEnd(cursor, 'repeat')
+  return { kind: 'repeat', head, body, line: repeatToken.line, column: repeatToken.column }
+}
+
+function parseRepeatHead(cursor: Cursor): RepeatHead {
+  if (cursor.isKeyword('forever')) {
+    cursor.next()
+    return { kind: 'forever' }
+  }
+  if (cursor.isKeyword('while')) {
+    cursor.next()
+    return { kind: 'while', condition: parseExpression(cursor) }
+  }
+  if (cursor.isKeyword('with')) {
+    cursor.next()
+    const variable = cursor.peek()
+    if (variable.kind !== 'identifier' || cursor.isReserved()) cursor.expected('a variable name')
+    cursor.next()
+    cursor.expectOperator('=')
+    const from = parseExpression(cursor)
+    let direction: 'up' | 'down' = 'up'
+    if (cursor.isKeyword('down')) {
+      cursor.next()
+      direction = 'down'
+    }
+    cursor.expectKeyword('to', direction === 'down' ? '"to"' : '"to" or "down to"')
+    const to = parseExpression(cursor)
+    return { kind: 'with', variable: variable.text, from, direction, to }
+  }
+  const count = parseExpression(cursor)
+  cursor.expectKeyword('times')
+  return { kind: 'times', count }
 }
 
 function parseContainer(cursor: Cursor): Container {

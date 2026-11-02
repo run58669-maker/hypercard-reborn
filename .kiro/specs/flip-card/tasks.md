@@ -68,7 +68,7 @@ after task 12 and complete after task 14.
     - `parse()` returns `ParseResult` and never throws; `program.source` is the input by reference (`toBe`, not `toEqual`, in the test).
     - Done when: every example in `.kiro/specs/flip-card/examples/` that uses only these statements parses; `put x into button "b"`, a duplicate handler and a mismatched `end` produce the messages in `design.md` §4.3.
     - _Requirements: 1.2, 1.4, 2.2, 3.4_
-  - [ ] 3.2 `if` and `repeat`
+  - [x] 3.2 `if` and `repeat`
     - Files: `src/parser/parser.ts`, `src/parser/parser.test.ts`.
     - Both `if` forms with the disambiguation rule in `docs/grammar.md` §3 (newline after `then` = block form), the single-line `else` on the next line, the block-statement restriction; all four `repeat` heads including `down to`.
     - Done when: all six examples parse; nested block `if` inside single-line `if` yields `a single-line if cannot contain "if" or "repeat"`; `repeat with i = 1 to 3` and `down to` produce distinct AST nodes.
