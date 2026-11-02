@@ -85,7 +85,7 @@ after task 12 and complete after task 14.
     - Property (200 runs): `parse(s)` never throws for arbitrary strings, including strings built from grammar keywords glued together.
     - Done when: snapshot committed; property passes; parser-tests hook green.
     - _Requirements: 1.4, 3.4_
-  - [ ] 3.5 Printer, arbitraries and the round-trip property
+  - [x] 3.5 Printer, arbitraries and the round-trip property
     - Files: `src/parser/printer.ts`, `src/parser/arbitraries.ts`, `src/parser/roundtrip.test.ts`.
     - `print(program)` per `design.md` §4.1. `arbProgram` generates programs over every statement and expression form with small integers and short identifiers not in the reserved list.
     - Properties (200 runs): `parse(print(p))` is structurally equal to `p` ignoring `line`/`column`/`source`; for every example script `s`, `parse(print(parse(s).program)).program` equals `parse(s).program` the same way.
