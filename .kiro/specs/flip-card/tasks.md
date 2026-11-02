@@ -211,7 +211,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.2, 4.1_
 
 - [ ] 10. Flip and back face
-  - [ ] 10.1 Flip toggle and read-only stored script
+  - [x] 10.1 Flip toggle and read-only stored script
     - Files: `src/ui/cardView.ts`, `src/ui/backFace.ts`, `src/styles.css`.
     - `data-face` toggle, CSS 3-D flip with a reduced-motion fallback, both faces mounted; back face layout from `design.md` §7.2 with the description shown read-only for now and the stored script in a `<pre data-testid="stored-script">` set via `textContent`; dev-mode assertion from §7.4.
     - Done when: jsdom test renders a card, flips, and `stored-script` `textContent` `===` `card.script`.

@@ -190,3 +190,93 @@ input:focus-visible {
   display: flex;
   justify-content: flex-end;
 }
+
+/* --- Flip ------------------------------------------------------------------ */
+
+.card-faces {
+  perspective: 1600px;
+}
+
+.face {
+  backface-visibility: hidden;
+  transition:
+    transform 0.6s ease,
+    visibility 0s linear 0.3s;
+}
+
+.face-front {
+  transform: rotateY(0deg);
+}
+
+.face-back {
+  transform: rotateY(180deg);
+  visibility: hidden;
+}
+
+.card[data-face="back"] .face-front {
+  transform: rotateY(-180deg);
+  visibility: hidden;
+}
+
+.card[data-face="back"] .face-back {
+  transform: rotateY(0deg);
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face {
+    transition: none;
+  }
+}
+
+/* --- Back face ------------------------------------------------------------- */
+
+.face-back {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 719px) {
+  .face-back {
+    grid-template-columns: 1fr;
+  }
+}
+
+.back-column h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.description-input,
+.stored-script,
+.script-editor {
+  width: 100%;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  margin: 0;
+}
+
+.description-input {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.stored-script {
+  white-space: pre;
+  overflow: auto;
+  min-height: 6em;
+  color: #333;
+  background: #fafaf7;
+}
+
+.script-origin {
+  margin: 6px 0 0;
+  color: var(--line);
+  font-size: 0.85rem;
+}
