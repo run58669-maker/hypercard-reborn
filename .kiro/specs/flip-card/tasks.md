@@ -216,7 +216,7 @@ after task 12 and complete after task 14.
     - `data-face` toggle, CSS 3-D flip with a reduced-motion fallback, both faces mounted; back face layout from `design.md` §7.2 with the description shown read-only for now and the stored script in a `<pre data-testid="stored-script">` set via `textContent`; dev-mode assertion from §7.4.
     - Done when: jsdom test renders a card, flips, and `stored-script` `textContent` `===` `card.script`.
     - _Requirements: 2.1, 2.2, 2.3_
-  - [ ] 10.2 Flip end-to-end
+  - [x] 10.2 Flip end-to-end
     - Files: `e2e/flip.spec.ts`.
     - Flip shows description and script side by side (both visible, back face `data-face="back"`); the `<pre>` `textContent` equals the stored script read from `localStorage` inside the page, compared as bytes; flip again returns to the front and does not re-run (increment the counter to `2`, flip twice, still `2`).
     - Done when: the spec passes at 1280 px and at 600 px (stacked columns, both still visible).
