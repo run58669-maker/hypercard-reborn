@@ -235,7 +235,7 @@ after task 12 and complete after task 14.
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
 - [ ] 12. Description panel and settings
-  - [ ] 12.1 Settings panel
+  - [x] 12.1 Settings panel
     - Files: `src/ui/settings.ts`, `src/ui/settings.test.ts`.
     - Provider radio (`canned` default), key entry with the local-storage notice, Forget key, Reset to bundled cards (with a confirm), keys `hcr.compileProvider` and `hcr.anthropicApiKey`; `data-testid` names from `design.md` §7.3.
     - Done when: jsdom tests cover each control and that switching provider leaves every script unchanged.

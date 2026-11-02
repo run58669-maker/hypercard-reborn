@@ -327,3 +327,46 @@ input:focus-visible {
 .status-mirror {
   margin-top: 8px;
 }
+
+/* --- Settings -------------------------------------------------------------- */
+
+.settings {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 20px 24px;
+  max-width: 480px;
+  font: inherit;
+}
+
+.settings h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.settings-group input[type="password"] {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--line);
+  font-size: 0.85rem;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}

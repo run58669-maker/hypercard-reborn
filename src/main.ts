@@ -15,6 +15,6 @@ if (root !== null) {
     cardCount: () => store.getCards().length,
     onNavigate: (n) => app?.go(n),
   })
-  app = createApp(root, { store, runtime })
+  app = createApp(root, { store, runtime, storage: localStorage })
   app.go(1)
 }
