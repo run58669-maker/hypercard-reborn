@@ -172,7 +172,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.1, 1.4, 4.2_
 
 - [ ] 8. Anthropic provider (BYOK)
-  - [ ] 8.1 Compile prompt
+  - [x] 8.1 Compile prompt
     - Files: `src/compile/prompt.ts`, `src/compile/prompt.test.ts`, `src/compile/__snapshots__/`.
     - `buildSystemPrompt(grammar, examples)` and `SYSTEM_PROMPT` per `design.md` §6.5, with `docs/grammar.md?raw`.
     - Done when: the snapshot test passes and the prompt contains the full grammar text and all six scripts.
