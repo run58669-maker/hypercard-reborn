@@ -252,7 +252,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.1, 1.4, 4.2_
 
 - [ ] 13. Isolation and byte identity, end to end
-  - [ ] 13.1 No network at runtime
+  - [x] 13.1 No network at runtime
     - Files: `e2e/isolation.spec.ts`.
     - With the canned provider: visit every card, click every button, flip every card, dismiss dialogs; `page.on('request')` after `load` records zero requests.
     - Done when: the spec passes and fails if a `fetch('/x')` is injected into `cardRuntime.ts` temporarily.
