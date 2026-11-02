@@ -31,7 +31,7 @@ after task 12 and complete after task 14.
     - Add `scripts/check-boundaries.test.ts` that writes a temporary file importing `@anthropic-ai/sdk` into `src/interpreter/`, runs ESLint programmatically, and asserts an error is reported (then removes the file).
     - Done when: `npm run lint` passes; the boundary test passes; a hand-made `src/runtime/x.ts` importing `../compile/compileService` fails `npm run lint`.
     - _Requirements: 1.3, 3.3_
-  - [ ] 1.4 Playwright and the git pre-commit twin
+  - [x] 1.4 Playwright and the git pre-commit twin
     - Files: `playwright.config.ts`, `e2e/smoke.spec.ts`, `.githooks/pre-commit`, `package.json` (`test:e2e`, `prepare`).
     - Playwright runs against `vite preview` on a fixed port with `webServer`; the smoke spec opens `/` and expects the text "HyperCard Reborn".
     - `.githooks/pre-commit` is a POSIX sh script that runs `npm test` and exits non-zero on failure; `prepare` runs `git config core.hooksPath .githooks`. This mirrors `.kiro/hooks/pre-commit-tests.kiro.hook` for commits made outside Kiro.
