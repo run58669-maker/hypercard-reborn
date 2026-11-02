@@ -160,7 +160,7 @@ after task 12 and complete after task 14.
     - Types from `design.md` §6.1 plus `MissingKey` and `NoCannedMatch` error classes; `normalise` in the exact order of §6.3; `descriptionHash` helper using `crypto.subtle`.
     - Done when: tests show `"  The  Card. "` and `"the card"` normalise equal, and `"a.."` keeps one dot.
     - _Requirements: 1.1_
-  - [ ] 7.2 Compile service
+  - [x] 7.2 Compile service
     - Files: `src/compile/compileService.ts`, `src/compile/compileService.test.ts`, `src/compile/index.ts`.
     - `compile(description, provider, signal)`: exactly one `provider.compile` call, parse the candidate, build `CompileResult` with `descriptionHash`, map every thrown error to a `CompileError` kind with the message from `design.md` §9. No import of `src/store`.
     - Done when: a spy proves one call per `compile` (also when the provider throws); an invalid candidate yields `invalid-script` with `parseError` and `candidate`; a thrown `NoCannedMatch` yields `no-canned-match`.
