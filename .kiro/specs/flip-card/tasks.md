@@ -262,7 +262,7 @@ after task 12 and complete after task 14.
     - For every card: `TextEncoder` bytes of the `stored-script` `<pre>` `textContent` equal the bytes of that card's `script` in `localStorage['hcr.cards.v1']`, computed inside the page.
     - Done when: the spec passes for all six.
     - _Requirements: 2.2_
-  - [ ] 13.3 Bundle check
+  - [x] 13.3 Bundle check
     - Files: `scripts/bundle-check.test.ts`.
     - Runs `vite build`, finds the chunk containing the interpreter (by a marker string exported from `src/interpreter/index.ts`), and asserts it contains neither `anthropic` nor `api.anthropic.com`; asserts a separate chunk does contain `api.anthropic.com`.
     - Done when: the test passes and is wired into `npm test`.

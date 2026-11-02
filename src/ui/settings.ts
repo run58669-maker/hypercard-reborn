@@ -62,7 +62,7 @@ export function createSettings(deps: SettingsDeps): Settings {
       forget,
       el('p', {
         class: 'settings-note',
-        text: 'The key is stored in this browser\'s local storage, read only when you press Save on a description, and sent only to api.anthropic.com. A browser-held key is only appropriate for a personal key on a personal machine.',
+        text: 'The key is stored in this browser\'s local storage, read only when you press Save on a description, and sent only to the Anthropic API. A browser-held key is only appropriate for a personal key on a personal machine.',
       }),
     ]),
     el('fieldset', { class: 'settings-group' }, [el('legend', { text: 'Cards' }), reset]),

@@ -10,11 +10,28 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 // ./assets/*.js chunk. Inlining keeps the dev experience unchanged while
 // making the production build openable directly from the filesystem.
 //
-// `--mode chunks` builds without inlining, so the chunk split is visible:
-// the compile module (and with it the Anthropic SDK) is reached only through
-// a dynamic import() and lands in its own chunk, separate from the runtime.
-// The bundle check (task 13.3) and `npm run build:chunks` use this mode.
-export default defineConfig(({ mode }) => ({
-  base: './',
-  plugins: mode === 'chunks' ? [] : [viteSingleFile()],
-}))
+// `--mode chunks` builds without inlining and with an explicit chunk split,
+// so the module graph is visible in the output: the interpreter and parser
+// land in an `interpreter` chunk, the compile module with the Anthropic SDK
+// and zod in a `compile` chunk that is reached only through a dynamic
+// import(). The bundle check (task 13.3) and `npm run build:chunks` use it.
+export default defineConfig(({ mode }) => {
+  const chunks = mode === 'chunks'
+  return {
+    base: './',
+    plugins: chunks ? [] : [viteSingleFile()],
+    build: chunks
+      ? {
+          rollupOptions: {
+            output: {
+              manualChunks(id: string) {
+                if (id.includes('/src/interpreter/') || id.includes('/src/parser/')) return 'interpreter'
+                if (id.includes('/src/compile/') || id.includes('@anthropic-ai/') || id.includes('/node_modules/zod/')) return 'compile'
+                return undefined
+              },
+            },
+          },
+        }
+      : {},
+  }
+})
