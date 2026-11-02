@@ -37,7 +37,7 @@ after task 12 and complete after task 14.
     - `.githooks/pre-commit` is a POSIX sh script that runs `npm test` and exits non-zero on failure; `prepare` runs `git config core.hooksPath .githooks`. This mirrors `.kiro/hooks/pre-commit-tests.kiro.hook` for commits made outside Kiro.
     - Done when: `npm run test:e2e` passes; after `npm install`, `git config core.hooksPath` prints `.githooks`; a commit attempted with a deliberately failing test is rejected.
     - _Requirements: 4.3_
-  - [ ] 1.5 CI
+  - [x] 1.5 CI
     - Files: `.github/workflows/ci.yml`.
     - On push and pull request: Node 22, `npm ci`, `lint`, `typecheck`, `test`, `build`, `test:e2e` (with `npx playwright install --with-deps chromium`).
     - Done when: the workflow file passes `actionlint` (run via `npx actionlint` or the Docker image) and the job list matches the scripts above.
