@@ -245,7 +245,7 @@ after task 12 and complete after task 14.
     - Editable description, Save (disabled while compiling), chips when the provider is `canned`, `compile` loaded with dynamic `import()`, `saveDescription` then `compile` then `commitScript` then `run`, the compile-error block including the rejected candidate for `invalid-script`, the stale-description notice via `descriptionHash`, script-origin line texts from `design.md` §7.2.
     - Done when: jsdom tests with a fake provider cover success, `invalid-script`, `no-canned-match`, double-click producing one call, and the stale notice.
     - _Requirements: 1.1, 1.4, 3.3, 4.2_
-  - [ ] 12.3 Compile flow end-to-end (offline)
+  - [x] 12.3 Compile flow end-to-end (offline)
     - Files: `e2e/compile.spec.ts`.
     - Pick the `counter` chip on the `hello` card, Save, the front face now has a working Increment button and the back face shows the counter script; type an unknown description, Save, see the no-match message and the previous script still shown and still running; the whole flow makes no network request.
     - Done when: the spec passes.
