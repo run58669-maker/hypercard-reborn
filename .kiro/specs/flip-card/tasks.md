@@ -98,7 +98,7 @@ after task 12 and complete after task 14.
     - `isNumeric`, `toNumber`, `renderNumber`, `compare`, `toBoolean`, `checkLength` implementing `docs/grammar.md` §4 and `design.md` §5.3 (numeric regex, 6-decimal rendering, `div`/`mod` rules, case-insensitive string order, 64 KiB limit). Errors are returned as `{ message }` values.
     - Done when: `it.each` tables cover every example value in the grammar (`10 / 4` → `2.5`, `-7 div 2` → `-3`, `-7 mod 2` → `-1`, `1.` not numeric, etc.) and pass.
     - _Requirements: 1.2_
-  - [ ] 4.2 Host interface and FakeHost
+  - [x] 4.2 Host interface and FakeHost
     - Files: `src/interpreter/host.ts`, `src/interpreter/fakeHost.ts`, `src/interpreter/fakeHost.test.ts`.
     - `Host` exactly as `design.md` §5.1; `FakeHost` built from `CardObject[]`, records `calls` in order, exposes `dialogs`, `messages`, `navigations`, fixed `now`.
     - Done when: a test seeds two objects, renames one, and asserts `hasObject` finds it under the new name only and `calls` lists the exact sequence.
