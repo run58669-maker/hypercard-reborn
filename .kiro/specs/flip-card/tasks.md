@@ -62,7 +62,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.4, 3.4_
 
 - [ ] 3. Parser
-  - [ ] 3.1 Handlers and simple statements
+  - [x] 3.1 Handlers and simple statements
     - Files: `src/parser/parser.ts`, `src/parser/parser.test.ts`, `src/parser/index.ts`.
     - Recursive descent: `on`/`end` handlers with duplicate and mismatch errors, blank and comment lines inside handlers, `put` (with and without `into`), `set`, `get`, `answer`, `go [to] card`, `show`, `hide`. Expressions may be stubbed to primaries for this task.
     - `parse()` returns `ParseResult` and never throws; `program.source` is the input by reference (`toBe`, not `toEqual`, in the test).
