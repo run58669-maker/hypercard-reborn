@@ -44,7 +44,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.3_
 
 - [ ] 2. Lexer
-  - [ ] 2.1 AST and error types
+  - [x] 2.1 AST and error types
     - Files: `src/parser/ast.ts`, `src/parser/errors.ts`.
     - `Program`, `Handler`, every statement and expression node from `docs/grammar.md` §2-§4, each with `line` and `column`; `ParseError` and `ParseResult` from `design.md` §4.1. Discriminated unions with a `kind` field; no classes.
     - Done when: `npm run typecheck` passes and `ast.ts` has a node type for every production in the grammar (list them in the file header).

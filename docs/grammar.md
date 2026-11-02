@@ -139,7 +139,7 @@ concat_expr     = additive { ( "&" | "&&" ) additive } ;          (* && inserts 
 additive        = term { ( "+" | "-" ) term } ;
 term            = unary { ( "*" | "/" | "div" | "mod" ) unary } ;
 unary           = "-" unary | primary ;
-primary         = number | string | "true" | "false" | "empty" | "quote"
+primary         = number | string | "true" | "false" | "empty" | "quote" | "return"
                 | identifier
                 | object_ref                                      (* the text of a field / the name of a button *)
                 | "the" builtin_function
