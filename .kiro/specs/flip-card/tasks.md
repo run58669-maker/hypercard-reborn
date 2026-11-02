@@ -274,7 +274,7 @@ after task 12 and complete after task 14.
     - Replace "(stub)" markers; real commands; BYOK trade-off; a 60-second demo script using the six bundled cards in order (hello → counter → date-stamp → greeter → countdown → quiz, then flip the quiz card, edit `4` to `5`, commit, answer `5`).
     - Done when: every command in the README runs as written on a fresh clone.
     - _Requirements: 4.1_
-  - [ ] 14.2 Traceability
+  - [x] 14.2 Traceability
     - Files: `docs/traceability.md`.
     - A table of every acceptance criterion (1.1 … 4.3) with the unit/property test and the Playwright spec that covers it, by file and test name.
     - Done when: every criterion has at least one test, and a reviewer can run each named test alone.
