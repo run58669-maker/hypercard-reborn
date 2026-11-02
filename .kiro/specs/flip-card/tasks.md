@@ -189,7 +189,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.1, 1.4_
 
 - [ ] 9. Runtime and app shell
-  - [ ] 9.1 DOM host
+  - [x] 9.1 DOM host
     - Files: `src/runtime/domHost.ts`, `src/runtime/domHost.test.ts` (jsdom).
     - A `Host` over a container element: renders `objects` into positioned `<textarea data-testid="field-…">` and `<button data-testid="button-…">`, reads field text live from the DOM, implements rename/visible/enabled, queues dialogs, records at most one navigation, `message` writes the message box.
     - Done when: jsdom tests cover each `Host` method and the `data-testid` names from `design.md` §7.3.
