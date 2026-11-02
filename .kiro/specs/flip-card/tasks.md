@@ -194,7 +194,7 @@ after task 12 and complete after task 14.
     - A `Host` over a container element: renders `objects` into positioned `<textarea data-testid="field-…">` and `<button data-testid="button-…">`, reads field text live from the DOM, implements rename/visible/enabled, queues dialogs, records at most one navigation, `message` writes the message box.
     - Done when: jsdom tests cover each `Host` method and the `data-testid` names from `design.md` §7.3.
     - _Requirements: 1.2_
-  - [ ] 9.2 CardRuntime
+  - [x] 9.2 CardRuntime
     - Files: `src/runtime/cardRuntime.ts`, `src/runtime/cardRuntime.test.ts`, `src/runtime/index.ts`.
     - `run(card)`, `rerun(card)`, `currentProgram(id)`, button click → `mouseUp` with `the target`, status line text on runtime error, deferred dialogs then navigation per `design.md` §5.5; `onNavigate(n)` callback for the shell.
     - Done when: jsdom test clicks the counter button three times and the field reads `3`; a quiz run with `4` shows one dialog and only after OK calls `onNavigate(2)`.
