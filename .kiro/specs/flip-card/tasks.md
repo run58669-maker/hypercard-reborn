@@ -73,7 +73,7 @@ after task 12 and complete after task 14.
     - Both `if` forms with the disambiguation rule in `docs/grammar.md` §3 (newline after `then` = block form), the single-line `else` on the next line, the block-statement restriction; all four `repeat` heads including `down to`.
     - Done when: all six examples parse; nested block `if` inside single-line `if` yields `a single-line if cannot contain "if" or "repeat"`; `repeat with i = 1 to 3` and `down to` produce distinct AST nodes.
     - _Requirements: 1.4_
-  - [ ] 3.3 Expressions
+  - [x] 3.3 Expressions
     - Files: `src/parser/expressions.ts`, `src/parser/expressions.test.ts`.
     - Precedence climbing exactly as `docs/grammar.md` §4: `or`, `and`, `not`, comparisons (`= <> < > <= >= is`, `is not` with the `is not` rule), `&`/`&&`, `+ -`, `* / div mod`, unary minus, parentheses, constants, `the date|time|target`, `field "x"`, `button "x"`, identifiers; reserved word as identifier is a parse error.
     - Unit tests: an `it.each` table of (source, expected AST) with at least one row per precedence boundary and the `is not` case.

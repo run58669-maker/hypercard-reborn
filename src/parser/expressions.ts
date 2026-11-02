@@ -1,4 +1,4 @@
-// Expression parser for docs/grammar.md §4, by precedence climbing over the
+// Expression parser for docs/grammar.md §4 (task 3.3), by precedence climbing over the
 // levels in the grammar (lowest first): or, and, not, comparison, concat,
 // additive, term, unary minus, primary. All binary operators are
 // left-associative; a comparison takes at most one operator (`a = b = c` is a
