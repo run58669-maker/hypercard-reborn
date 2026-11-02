@@ -177,7 +177,7 @@ after task 12 and complete after task 14.
     - `buildSystemPrompt(grammar, examples)` and `SYSTEM_PROMPT` per `design.md` §6.5, with `docs/grammar.md?raw`.
     - Done when: the snapshot test passes and the prompt contains the full grammar text and all six scripts.
     - _Requirements: 1.1_
-  - [ ] 8.2 Provider
+  - [x] 8.2 Provider
     - Files: `src/compile/providers/anthropic.ts`, `package.json` (`@anthropic-ai/sdk`, `zod` as runtime deps, with the one-line justification from `tech.md` in the commit message).
     - Everything in `design.md` §6.4: key read at call time, client options, `messages.parse` with structured output, response checks in order, error mapping, 30 s timeout combined with the caller's signal.
     - Done when: `npm run typecheck` passes against the installed SDK types and `npm run build` emits the SDK in a chunk separate from the runtime chunk.

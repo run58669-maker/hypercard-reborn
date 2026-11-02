@@ -9,7 +9,12 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 // file:// origin (CORS), so the built page must not reference an external
 // ./assets/*.js chunk. Inlining keeps the dev experience unchanged while
 // making the production build openable directly from the filesystem.
-export default defineConfig({
+//
+// `--mode chunks` builds without inlining, so the chunk split is visible:
+// the compile module (and with it the Anthropic SDK) is reached only through
+// a dynamic import() and lands in its own chunk, separate from the runtime.
+// The bundle check (task 13.3) and `npm run build:chunks` use this mode.
+export default defineConfig(({ mode }) => ({
   base: './',
-  plugins: [viteSingleFile()],
-})
+  plugins: mode === 'chunks' ? [] : [viteSingleFile()],
+}))
