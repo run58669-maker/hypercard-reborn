@@ -93,7 +93,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.4, 3.4_
 
 - [ ] 4. Interpreter
-  - [ ] 4.1 Values
+  - [x] 4.1 Values
     - Files: `src/interpreter/values.ts`, `src/interpreter/values.test.ts`.
     - `isNumeric`, `toNumber`, `renderNumber`, `compare`, `toBoolean`, `checkLength` implementing `docs/grammar.md` §4 and `design.md` §5.3 (numeric regex, 6-decimal rendering, `div`/`mod` rules, case-insensitive string order, 64 KiB limit). Errors are returned as `{ message }` values.
     - Done when: `it.each` tables cover every example value in the grammar (`10 / 4` → `2.5`, `-7 div 2` → `-3`, `-7 mod 2` → `-1`, `1.` not numeric, etc.) and pass.
