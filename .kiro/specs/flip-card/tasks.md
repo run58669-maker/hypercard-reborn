@@ -109,7 +109,7 @@ after task 12 and complete after task 14.
     - Properties (100 runs): for generated `+ - * div mod` trees over integers in [-50, 50] with non-zero divisors, the result equals a JS reference evaluator rendered with `renderNumber`; `a & b` has length `len(a)+len(b)`; `a && b` equals `a + " " + b`.
     - Done when: properties pass and `the time` at 00:05 renders `12:05 AM`.
     - _Requirements: 1.2_
-  - [ ] 4.4 Statements, control flow and limits
+  - [x] 4.4 Statements, control flow and limits
     - Files: `src/interpreter/interpreter.ts`, `src/interpreter/interpreter.test.ts`, `src/interpreter/index.ts`.
     - `run(program, handler, host, { target })` per `design.md` §5.2: handler lookup, locals, `it`, `put`/`set`/`get`, both `if` forms, all `repeat` forms with the counter rule, `answer`, `go to card` (recorded), `show`/`hide`, `set visible|enabled|name`, 10,000-statement budget, every message from `design.md` §5.4.
     - Done when: a test per row of §5.4 asserts the exact message; `repeat forever` with no body ends with `script ran too long` after exactly 10,000 statements; a missing handler returns `{ ok: true, statements: 0 }`.
