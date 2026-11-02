@@ -257,7 +257,7 @@ after task 12 and complete after task 14.
     - With the canned provider: visit every card, click every button, flip every card, dismiss dialogs; `page.on('request')` after `load` records zero requests.
     - Done when: the spec passes and fails if a `fetch('/x')` is injected into `cardRuntime.ts` temporarily.
     - _Requirements: 1.3, 4.3_
-  - [ ] 13.2 Byte identity for every seeded card
+  - [x] 13.2 Byte identity for every seeded card
     - Files: `e2e/identity.spec.ts`.
     - For every card: `TextEncoder` bytes of the `stored-script` `<pre>` `textContent` equal the bytes of that card's `script` in `localStorage['hcr.cards.v1']`, computed inside the page.
     - Done when: the spec passes for all six.
