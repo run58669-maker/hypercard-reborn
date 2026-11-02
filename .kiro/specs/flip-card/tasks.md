@@ -143,7 +143,7 @@ after task 12 and complete after task 14.
     - Load/save `localStorage['hcr.cards.v1']` with the schema check from `design.md` §3; seed from `src/examples` when missing or invalid; `resetToSeed()`.
     - Done when: tests with a fake `localStorage` cover: empty → seeded six cards with `kind: 'seed'`; corrupt JSON → re-seeded; valid data → loaded unchanged; `resetToSeed` after an edit restores the bundled script.
     - _Requirements: 4.1_
-  - [ ] 6.3 Store unit tests
+  - [x] 6.3 Store unit tests
     - Files: `src/store/cardStore.test.ts`.
     - Commit success updates `script`, `scriptOrigin`, `updatedAt` and persists; `getCardByNumber` for 1..6 and 7; change notifications carry the right `kind`.
     - Done when: tests pass.

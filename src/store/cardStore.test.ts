@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createCardStore } from './cardStore'
+import { seedCards } from './seed'
 import type { Card, StoreChange } from './types'
 
 const NOW = new Date('2026-11-01T15:04:00.000Z')
@@ -81,5 +82,55 @@ describe('getCards', () => {
   it('returns the cards sorted by number', () => {
     const { store: s } = store()
     expect(s.getCards().map((c) => c.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('getCardByNumber', () => {
+  it('finds cards 1..6 of the seeded stack and nothing for 7 or 0', () => {
+    const { store: s } = store([...seedCards(NOW)])
+    for (let n = 1; n <= 6; n += 1) {
+      expect(s.getCardByNumber(n)?.number).toBe(n)
+    }
+    expect(s.getCardByNumber(1)?.id).toBe('hello')
+    expect(s.getCardByNumber(6)?.id).toBe('quiz')
+    expect(s.getCardByNumber(7)).toBeUndefined()
+    expect(s.getCardByNumber(0)).toBeUndefined()
+  })
+})
+
+describe('change notifications', () => {
+  it('carry the right kind and id for each change, and stop after unsubscribe', () => {
+    const { store: s, changes } = store()
+    const seen: StoreChange[] = []
+    const unsubscribe = s.subscribe((c) => seen.push(c))
+    s.saveDescription('a', 'd')
+    s.commitScript('a', VALID, { kind: 'edited', at: NOW.toISOString() })
+    s.commitScript('a', INVALID, { kind: 'edited', at: NOW.toISOString() })
+    s.resetToSeed()
+    unsubscribe()
+    s.saveDescription('a', 'e')
+    expect(seen).toEqual([{ kind: 'description', id: 'a' }, { kind: 'script', id: 'a' }, { kind: 'reset' }])
+    expect(changes).toHaveLength(4)
+  })
+})
+
+describe('commit success', () => {
+  it('updates script, scriptOrigin and updatedAt, persists once, and keeps other fields', () => {
+    const { store: s, persist } = store()
+    const before = s.getCard('b') as Card
+    const origin = { kind: 'compiled', provider: 'canned', descriptionHash: 'abc', at: NOW.toISOString() } as const
+    const result = s.commitScript('b', '', origin)
+    expect(result).toEqual({ ok: true, card: { ...before, script: '', scriptOrigin: origin, updatedAt: NOW.toISOString() } })
+    expect(s.getCard('b')).toEqual(result.ok ? result.card : undefined)
+    expect(persist).toHaveBeenCalledTimes(1)
+    expect(persist.mock.calls[0]?.[0]).toEqual(s.getCards())
+  })
+
+  it('returns a new card object and leaves the previous snapshot untouched', () => {
+    const { store: s } = store()
+    const before = s.getCard('b') as Card
+    s.commitScript('b', '', { kind: 'edited', at: NOW.toISOString() })
+    expect(before.script).toBe(VALID)
+    expect(s.getCard('b')).not.toBe(before)
   })
 })
