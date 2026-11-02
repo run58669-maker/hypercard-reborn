@@ -12,7 +12,7 @@ any edit to `docs/grammar.md`, `.kiro/specs/flip-card/examples/`, `src/examples/
 runs `npm test` first through the pre-commit-tests hook. The app is demoable offline
 after task 12 and complete after task 14.
 
-- [ ] 1. Scaffold
+- [x] 1. Scaffold
   - [x] 1.1 Vite, TypeScript, Vitest and fast-check
     - Files: `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts`, `index.html`, `src/main.ts`.
     - `tsconfig`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `moduleResolution: bundler`, `types` for `vite/client` (so `?raw` imports type-check).
@@ -43,7 +43,7 @@ after task 12 and complete after task 14.
     - Done when: the workflow file passes `actionlint` (run via `npx actionlint` or the Docker image) and the job list matches the scripts above.
     - _Requirements: 1.3_
 
-- [ ] 2. Lexer
+- [x] 2. Lexer
   - [x] 2.1 AST and error types
     - Files: `src/parser/ast.ts`, `src/parser/errors.ts`.
     - `Program`, `Handler`, every statement and expression node from `docs/grammar.md` §2-§4, each with `line` and `column`; `ParseError` and `ParseResult` from `design.md` §4.1. Discriminated unions with a `kind` field; no classes.
@@ -61,7 +61,7 @@ after task 12 and complete after task 14.
     - Done when: the property passes at 200 runs and the shrunk counter-examples found while writing it are added as named unit tests.
     - _Requirements: 1.4, 3.4_
 
-- [ ] 3. Parser
+- [x] 3. Parser
   - [x] 3.1 Handlers and simple statements
     - Files: `src/parser/parser.ts`, `src/parser/parser.test.ts`, `src/parser/index.ts`.
     - Recursive descent: `on`/`end` handlers with duplicate and mismatch errors, blank and comment lines inside handlers, `put` (with and without `into`), `set`, `get`, `answer`, `go [to] card`, `show`, `hide`. Expressions may be stubbed to primaries for this task.
@@ -92,7 +92,7 @@ after task 12 and complete after task 14.
     - Done when: both properties pass; `arbitraries.ts` is the only generator file.
     - _Requirements: 1.4, 3.4_
 
-- [ ] 4. Interpreter
+- [x] 4. Interpreter
   - [x] 4.1 Values
     - Files: `src/interpreter/values.ts`, `src/interpreter/values.test.ts`.
     - `isNumeric`, `toNumber`, `renderNumber`, `compare`, `toBoolean`, `checkLength` implementing `docs/grammar.md` §4 and `design.md` §5.3 (numeric regex, 6-decimal rendering, `div`/`mod` rules, case-insensitive string order, 64 KiB limit). Errors are returned as `{ message }` values.
@@ -120,7 +120,7 @@ after task 12 and complete after task 14.
     - Done when: all assertions pass and the countdown field equals `"10\n9\n8\n7\n6\n5\n4\n3\n2\n1\nLiftoff!"`.
     - _Requirements: 1.2_
 
-- [ ] 5. Bundled examples
+- [x] 5. Bundled examples
   - [x] 5.1 `src/examples/index.ts`
     - Files: `src/examples/index.ts`, `src/examples/types.ts`.
     - Six `Example = { id, title, description, script, objects }` records in stack order. `description` and `script` are `?raw` imports of `.kiro/specs/flip-card/examples/<id>.hc/description.txt` and `script.hc`; `objects` from `design.md` §3.2.
@@ -132,7 +132,7 @@ after task 12 and complete after task 14.
     - Done when: the test passes, and changing one byte of a `script.hc` makes it fail with a message naming the example id.
     - _Requirements: 1.1, 1.4_
 
-- [ ] 6. Card store
+- [x] 6. Card store
   - [x] 6.1 Types and `commitScript`
     - Files: `src/store/types.ts`, `src/store/cardStore.ts`, `src/store/index.ts`.
     - `Card`, `ScriptOrigin`, `CardObject`, `CardStore`, `CommitResult`, `StoreChange` from `design.md` §3 and §3.1. `commitScript` parses first and returns `{ ok: false, error, card }` with nothing mutated on failure; `saveDescription` never touches `script`; one `subscribe` notification per successful change.
@@ -154,7 +154,7 @@ after task 12 and complete after task 14.
     - Done when: all three pass at 200 runs.
     - _Requirements: 1.4, 2.2, 3.4_
 
-- [ ] 7. Compile service and the canned provider
+- [x] 7. Compile service and the canned provider
   - [x] 7.1 Types and normalisation
     - Files: `src/compile/types.ts`, `src/compile/normalise.ts`, `src/compile/normalise.test.ts`.
     - Types from `design.md` §6.1 plus `MissingKey` and `NoCannedMatch` error classes; `normalise` in the exact order of §6.3; `descriptionHash` helper using `crypto.subtle`.
@@ -171,7 +171,7 @@ after task 12 and complete after task 14.
     - Done when: every bundled description compiles to its own script byte-for-byte; a whitespace/case/trailing-dot variant still hits; an unknown description misses.
     - _Requirements: 1.1, 1.4, 4.2_
 
-- [ ] 8. Anthropic provider (BYOK)
+- [x] 8. Anthropic provider (BYOK)
   - [x] 8.1 Compile prompt
     - Files: `src/compile/prompt.ts`, `src/compile/prompt.test.ts`, `src/compile/__snapshots__/`.
     - `buildSystemPrompt(grammar, examples)` and `SYSTEM_PROMPT` per `design.md` §6.5, with `docs/grammar.md?raw`.
@@ -188,7 +188,7 @@ after task 12 and complete after task 14.
     - Done when: all cases pass with one `fetch` call each.
     - _Requirements: 1.1, 1.4_
 
-- [ ] 9. Runtime and app shell
+- [x] 9. Runtime and app shell
   - [x] 9.1 DOM host
     - Files: `src/runtime/domHost.ts`, `src/runtime/domHost.test.ts` (jsdom).
     - A `Host` over a container element: renders `objects` into positioned `<textarea data-testid="field-…">` and `<button data-testid="button-…">`, reads field text live from the DOM, implements rename/visible/enabled, queues dialogs, records at most one navigation, `message` writes the message box.
@@ -210,7 +210,7 @@ after task 12 and complete after task 14.
     - Done when: Playwright loads the app, sees `Card 1 of 6` and the greeting field reading `Hello, world!`, clicks Next, sees the counter card and increments it to `2`.
     - _Requirements: 1.2, 4.1_
 
-- [ ] 10. Flip and back face
+- [x] 10. Flip and back face
   - [x] 10.1 Flip toggle and read-only stored script
     - Files: `src/ui/cardView.ts`, `src/ui/backFace.ts`, `src/styles.css`.
     - `data-face` toggle, CSS 3-D flip with a reduced-motion fallback, both faces mounted; back face layout from `design.md` §7.2 with the description shown read-only for now and the stored script in a `<pre data-testid="stored-script">` set via `textContent`; dev-mode assertion from §7.4.
@@ -222,7 +222,7 @@ after task 12 and complete after task 14.
     - Done when: the spec passes at 1280 px and at 600 px (stacked columns, both still visible).
     - _Requirements: 2.1, 2.2, 2.3_
 
-- [ ] 11. Script editor
+- [x] 11. Script editor
   - [x] 11.1 Editor, commit and parse-error panel
     - Files: `src/ui/editor.ts`, `src/ui/errorPanel.ts`, `src/ui/editor.test.ts`.
     - Draft state from `card.script` on first flip, Commit button and Ctrl/Cmd+Enter, no commit on blur, no-op when draft equals stored; on success clear the panel and `runtime.rerun(card)`; on failure show `line:column`, message and `near`, highlight the line, keep the draft. No import of `src/compile/`.
@@ -234,7 +234,7 @@ after task 12 and complete after task 14.
     - Done when: the spec passes.
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 12. Description panel and settings
+- [x] 12. Description panel and settings
   - [x] 12.1 Settings panel
     - Files: `src/ui/settings.ts`, `src/ui/settings.test.ts`.
     - Provider radio (`canned` default), key entry with the local-storage notice, Forget key, Reset to bundled cards (with a confirm), keys `hcr.compileProvider` and `hcr.anthropicApiKey`; `data-testid` names from `design.md` §7.3.
@@ -251,7 +251,7 @@ after task 12 and complete after task 14.
     - Done when: the spec passes.
     - _Requirements: 1.1, 1.4, 4.2_
 
-- [ ] 13. Isolation and byte identity, end to end
+- [x] 13. Isolation and byte identity, end to end
   - [x] 13.1 No network at runtime
     - Files: `e2e/isolation.spec.ts`.
     - With the canned provider: visit every card, click every button, flip every card, dismiss dialogs; `page.on('request')` after `load` records zero requests.
@@ -268,7 +268,7 @@ after task 12 and complete after task 14.
     - Done when: the test passes and is wired into `npm test`.
     - _Requirements: 1.3_
 
-- [ ] 14. Polish and hand-off
+- [x] 14. Polish and hand-off
   - [x] 14.1 README
     - Files: `README.md`.
     - Replace "(stub)" markers; real commands; BYOK trade-off; a 60-second demo script using the six bundled cards in order (hello → counter → date-stamp → greeter → countdown → quiz, then flip the quiz card, edit `4` to `5`, commit, answer `5`).
