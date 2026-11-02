@@ -13,14 +13,14 @@ runs `npm test` first through the pre-commit-tests hook. The app is demoable off
 after task 12 and complete after task 14.
 
 - [ ] 1. Scaffold
-  - [ ] 1.1 Vite, TypeScript, Vitest and fast-check
+  - [x] 1.1 Vite, TypeScript, Vitest and fast-check
     - Files: `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts`, `index.html`, `src/main.ts`.
     - `tsconfig`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `moduleResolution: bundler`, `types` for `vite/client` (so `?raw` imports type-check).
     - Scripts: `dev`, `build`, `preview`, `test` (`vitest run`), `test:watch`, `typecheck` (`tsc --noEmit`). Dev deps only; no runtime deps yet.
     - `index.html` renders the text "HyperCard Reborn" from `src/main.ts`.
     - Done when: `npm run build` emits `dist/` that opens from `file://` and shows the text; `npm test` runs one placeholder test and passes; `npm run typecheck` passes.
     - _Requirements: 4.1_
-  - [ ] 1.2 ESLint
+  - [x] 1.2 ESLint
     - Files: `eslint.config.js`, `package.json` (`lint` script).
     - Flat config with `@typescript-eslint` recommended-type-checked; `no-explicit-any` as error (tests may override to warn in `*.test.ts`).
     - Done when: `npm run lint` passes on the scaffold and fails on a file containing `let x: any`.
