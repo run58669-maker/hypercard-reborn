@@ -36,7 +36,9 @@ not by convention. `@anthropic-ai/sdk` is reachable from one file, `src/compile/
 
 - Model `claude-haiku-5-5`, called from the browser with the user's own key via
   `new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 })`.
-- Structured output through `output_config.format` and `client.messages.parse`; no assistant prefill (rejected by this model).
+- Structured output through `output_config.format` on `client.messages.create`, decoded with the
+  format helper's `parse` after the `stop_reason` branch (SDK 1.3.0's `messages.parse` throws on a
+  truncated body first; see `design.md` §6.4); no assistant prefill (rejected by this model).
 - Leave `thinking` and `effort` at the model defaults; do not send `temperature`, `top_p`, `top_k` or `fallbacks` (all rejected or unsupported on this model).
 - Always branch on `stop_reason` (`refusal`, `max_tokens`) before reading content.
 - Catch SDK errors most-specific first: `AuthenticationError`, `RateLimitError`, `APIConnectionError`, then `APIError`.

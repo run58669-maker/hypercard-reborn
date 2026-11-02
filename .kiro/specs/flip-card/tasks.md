@@ -182,7 +182,7 @@ after task 12 and complete after task 14.
     - Everything in `design.md` §6.4: key read at call time, client options, `messages.parse` with structured output, response checks in order, error mapping, 30 s timeout combined with the caller's signal.
     - Done when: `npm run typecheck` passes against the installed SDK types and `npm run build` emits the SDK in a chunk separate from the runtime chunk.
     - _Requirements: 1.1, 1.4_
-  - [ ] 8.3 Provider tests at the `fetch` boundary
+  - [x] 8.3 Provider tests at the `fetch` boundary
     - Files: `src/compile/providers/anthropic.test.ts`.
     - Mock `fetch` (not the SDK): missing key → `auth`; 401 → `auth`; 429 → `rate-limit`; network failure → `network`; `stop_reason: refusal` → `refused`; `max_tokens` → `truncated`; a well-formed structured response returns the script; the request body contains the model id, exactly one user message, no `temperature` key and no `fallbacks` key. Record in the test file header which SDK version the field names were verified against; if the installed SDK names a field differently from `design.md` §6.4, update the design first and say so in the commit.
     - Done when: all cases pass with one `fetch` call each.

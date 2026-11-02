@@ -412,23 +412,31 @@ so the UI is identical for both providers (same spinner, same disabled Save).
   `new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 })`.
   The browser flag is required by the SDK because the call leaves the key visible to
   the page; that is the explicit BYOK trade-off, documented in the README.
-- Request: `client.messages.parse` on model `claude-haiku-5-5` with
+- Request: `client.messages.create` on model `claude-haiku-5-5` with
   - `max_tokens: 2048` (the largest bundled example is under 300 tokens; scripts are small),
   - structured output via `output_config.format` (`zodOutputFormat` of `z.object({ script: z.string() })`),
-    so there is no fence-stripping and no prose to trim,
+    so there is no fence-stripping and no prose to trim; the text block is decoded with that
+    format object's own `parse(text)` after the `stop_reason` checks below. (Task 8.3 note:
+    the design first named `client.messages.parse`; in `@anthropic-ai/sdk` 1.3.0 that helper
+    parses eagerly and throws on a truncated body before `stop_reason` can be examined, so the
+    branch order below would be unreachable. `create` plus the same helper's `parse` keeps the
+    schema enforcement and the order.)
   - thinking and effort left at the model defaults; the task is small and the parser is the safety net,
   - no `temperature`, no assistant prefill, no `fallbacks`,
   - `system`: the compile prompt (§6.5), `messages`: one user turn containing the description verbatim.
 - Response handling, in order:
   1. `stop_reason === 'refusal'` → `{kind:'refused'}`.
   2. `stop_reason === 'max_tokens'` → `{kind:'truncated'}`.
-  3. `parsed_output == null` → `{kind:'invalid-script'}` with the raw text as candidate
-     and the parse error produced by parsing that raw text.
+  3. The text block does not decode as `{ script }` → the raw text is returned as the
+     candidate, so the service's parse of it yields `{kind:'invalid-script'}` with that
+     candidate and parse error.
   4. Otherwise return `parsed_output.script` as the candidate; the service parses it.
 - Error mapping (most specific first): `Anthropic.AuthenticationError` → `auth`,
-  `Anthropic.RateLimitError` → `rate-limit`, `Anthropic.APIConnectionError` → `network`,
-  any other `Anthropic.APIError` → `api` with its `status`, `MissingKey` → `auth`,
-  anything else → `unknown`.
+  `Anthropic.RateLimitError` → `rate-limit`, `Anthropic.APIUserAbortError` and
+  `Anthropic.APIConnectionError` → `network`, any other `Anthropic.APIError` → `api` with
+  its `status`, `MissingKey` → `auth`, anything else → `unknown`. The provider throws a
+  `ProviderError` carrying the kind; the service turns it into the §9 message, so the SDK
+  stays imported from this one file.
 - Timeout: 30 s. The provider combines the caller's signal with
   `AbortSignal.timeout(30_000)` via `AbortSignal.any`; an abort is reported as `network`.
 - The SDK fields named above are the ones the implementation targets; task 8.3 verifies

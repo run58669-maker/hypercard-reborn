@@ -1,9 +1,12 @@
 // The Anthropic compile provider, BYOK (design.md §6.4). This is the only
 // file in the project that imports @anthropic-ai/sdk (tech.md).
 //
-// SDK field names verified against @anthropic-ai/sdk 1.3.0: `messages.parse`,
-// `output_config.format` with `zodOutputFormat`, `parsed_output`, and
-// `stop_reason` values `refusal` / `max_tokens`.
+// SDK field names verified against @anthropic-ai/sdk 1.3.0: `messages.create`
+// with `output_config.format` from `zodOutputFormat`, `stop_reason` values
+// `refusal` / `max_tokens`, and the format object's own `parse(text)`.
+// `messages.parse` is not used: in 1.3.0 it parses the text block eagerly
+// and throws on a truncated body before `stop_reason` can be examined, which
+// would defeat the branch order design.md §6.4 requires (recorded there).
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
@@ -15,7 +18,7 @@ export const MODEL = 'claude-haiku-5-5'
 export const MAX_TOKENS = 2048
 export const TIMEOUT_MS = 30_000
 
-const OUTPUT = z.object({ script: z.string() })
+const OUTPUT_FORMAT = zodOutputFormat(z.object({ script: z.string() }))
 
 /** The subset of Web Storage the provider reads; the app passes localStorage. */
 export interface KeyStorage {
@@ -47,13 +50,13 @@ export function createAnthropicProvider(options: AnthropicProviderOptions = {}):
 
       let message
       try {
-        message = await client.messages.parse(
+        message = await client.messages.create(
           {
             model: MODEL,
             max_tokens: MAX_TOKENS,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: description }],
-            output_config: { format: zodOutputFormat(OUTPUT) },
+            output_config: { format: OUTPUT_FORMAT },
           },
           { signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]) },
         )
@@ -64,12 +67,15 @@ export function createAnthropicProvider(options: AnthropicProviderOptions = {}):
       // Branch on stop_reason before reading content (tech.md).
       if (message.stop_reason === 'refusal') throw new ProviderError('refused', 'stop_reason refusal')
       if (message.stop_reason === 'max_tokens') throw new ProviderError('truncated', 'stop_reason max_tokens')
-      if (message.parsed_output === null) {
+
+      const text = message.content.map((block) => (block.type === 'text' ? block.text : '')).join('')
+      try {
+        return OUTPUT_FORMAT.parse(text).script
+      } catch {
         // Not valid structured output: hand the raw text to the service, whose
         // parse of it produces the invalid-script error with this candidate.
-        return message.content.map((block) => (block.type === 'text' ? block.text : '')).join('')
+        return text
       }
-      return message.parsed_output.script
     },
   }
 }
