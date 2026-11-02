@@ -228,7 +228,7 @@ after task 12 and complete after task 14.
     - Draft state from `card.script` on first flip, Commit button and Ctrl/Cmd+Enter, no commit on blur, no-op when draft equals stored; on success clear the panel and `runtime.rerun(card)`; on failure show `line:column`, message and `near`, highlight the line, keep the draft. No import of `src/compile/`.
     - Done when: jsdom tests cover success, failure, no-op and the shortcut; `npm run lint` passes.
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
-  - [ ] 11.2 Editor end-to-end
+  - [x] 11.2 Editor end-to-end
     - Files: `e2e/editor.spec.ts`.
     - Edit the `hello` card's greeting to `Hello, Kiro!`, commit, flip back, see the new text without reloading; reload and see it persisted; introduce a syntax error, commit, see `parse-error` next to the editor while the front face still shows the last valid result; assert no network request during the whole flow.
     - Done when: the spec passes.
