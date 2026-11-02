@@ -2,6 +2,7 @@
 // module only through a dynamic import() so the SDK stays out of the runtime
 // chunk; the interpreter, runtime and store cannot import it at all.
 export { compile } from './compileService'
+export { createCannedProvider } from './providers/canned'
 export { normalise, descriptionHash } from './normalise'
 export { MESSAGES } from './messages'
 export { MissingKey, NoCannedMatch, ProviderError } from './types'

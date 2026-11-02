@@ -165,7 +165,7 @@ after task 12 and complete after task 14.
     - `compile(description, provider, signal)`: exactly one `provider.compile` call, parse the candidate, build `CompileResult` with `descriptionHash`, map every thrown error to a `CompileError` kind with the message from `design.md` §9. No import of `src/store`.
     - Done when: a spy proves one call per `compile` (also when the provider throws); an invalid candidate yields `invalid-script` with `parseError` and `candidate`; a thrown `NoCannedMatch` yields `no-canned-match`.
     - _Requirements: 1.1, 1.4_
-  - [ ] 7.3 Canned provider
+  - [x] 7.3 Canned provider
     - Files: `src/compile/providers/canned.ts`, `src/compile/providers/canned.test.ts`.
     - Lookup by `normalise` against `src/examples`; miss throws `NoCannedMatch`.
     - Done when: every bundled description compiles to its own script byte-for-byte; a whitespace/case/trailing-dot variant still hits; an unknown description misses.
