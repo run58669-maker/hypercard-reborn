@@ -121,7 +121,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.2_
 
 - [ ] 5. Bundled examples
-  - [ ] 5.1 `src/examples/index.ts`
+  - [x] 5.1 `src/examples/index.ts`
     - Files: `src/examples/index.ts`, `src/examples/types.ts`.
     - Six `Example = { id, title, description, script, objects }` records in stack order. `description` and `script` are `?raw` imports of `.kiro/specs/flip-card/examples/<id>.hc/description.txt` and `script.hc`; `objects` from `design.md` §3.2.
     - Done when: `npm run typecheck` passes and a test asserts six records with the ids in order.
