@@ -126,7 +126,7 @@ after task 12 and complete after task 14.
     - Six `Example = { id, title, description, script, objects }` records in stack order. `description` and `script` are `?raw` imports of `.kiro/specs/flip-card/examples/<id>.hc/description.txt` and `script.hc`; `objects` from `design.md` §3.2.
     - Done when: `npm run typecheck` passes and a test asserts six records with the ids in order.
     - _Requirements: 1.1, 4.1_
-  - [ ] 5.2 Consistency test
+  - [x] 5.2 Consistency test
     - Files: `src/examples/consistency.test.ts`.
     - Implements `design.md` §6.7 exactly: extraction from `docs/grammar.md`, byte comparison with the spec examples directory and with `src/examples`, every script parses, reserved words equal the lexer keyword table.
     - Done when: the test passes, and changing one byte of a `script.hc` makes it fail with a message naming the example id.
