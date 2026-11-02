@@ -133,7 +133,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.1, 1.4_
 
 - [ ] 6. Card store
-  - [ ] 6.1 Types and `commitScript`
+  - [x] 6.1 Types and `commitScript`
     - Files: `src/store/types.ts`, `src/store/cardStore.ts`, `src/store/index.ts`.
     - `Card`, `ScriptOrigin`, `CardObject`, `CardStore`, `CommitResult`, `StoreChange` from `design.md` §3 and §3.1. `commitScript` parses first and returns `{ ok: false, error, card }` with nothing mutated on failure; `saveDescription` never touches `script`; one `subscribe` notification per successful change.
     - Done when: unit tests assert the failure path leaves `getCard(id)` deep-equal to before and emits no change.
