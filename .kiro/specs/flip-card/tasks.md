@@ -199,7 +199,7 @@ after task 12 and complete after task 14.
     - `run(card)`, `rerun(card)`, `currentProgram(id)`, button click → `mouseUp` with `the target`, status line text on runtime error, deferred dialogs then navigation per `design.md` §5.5; `onNavigate(n)` callback for the shell.
     - Done when: jsdom test clicks the counter button three times and the field reads `3`; a quiz run with `4` shows one dialog and only after OK calls `onNavigate(2)`.
     - _Requirements: 1.2, 1.3_
-  - [ ] 9.3 Byte-identity unit and property tests
+  - [x] 9.3 Byte-identity unit and property tests
     - Files: `src/runtime/identity.test.ts`.
     - Unit: for every seeded card, `currentProgram(id).source === getCard(id).script`. Property (200 runs over `arbProgram` printed to source): `commitScript(id, s)` then `getCard(id).script === s` and `currentProgram(id).source === s`, also compared as `TextEncoder` bytes.
     - Done when: both pass.
