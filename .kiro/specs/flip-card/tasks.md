@@ -79,7 +79,7 @@ after task 12 and complete after task 14.
     - Unit tests: an `it.each` table of (source, expected AST) with at least one row per precedence boundary and the `is not` case.
     - Done when: the table passes and all six examples still parse.
     - _Requirements: 1.4_
-  - [ ] 3.4 Error messages and the never-throws property
+  - [x] 3.4 Error messages and the never-throws property
     - Files: `src/parser/errors.test.ts`, `src/parser/__snapshots__/`.
     - Snapshot test over 20 malformed scripts (one per row in `design.md` §4.3 plus edge cases: empty handler, `end` at end of input, unterminated string) freezing `line`, `column`, `message`, `near`.
     - Property (200 runs): `parse(s)` never throws for arbitrary strings, including strings built from grammar keywords glued together.
