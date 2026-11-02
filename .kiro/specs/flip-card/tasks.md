@@ -138,7 +138,7 @@ after task 12 and complete after task 14.
     - `Card`, `ScriptOrigin`, `CardObject`, `CardStore`, `CommitResult`, `StoreChange` from `design.md` §3 and §3.1. `commitScript` parses first and returns `{ ok: false, error, card }` with nothing mutated on failure; `saveDescription` never touches `script`; one `subscribe` notification per successful change.
     - Done when: unit tests assert the failure path leaves `getCard(id)` deep-equal to before and emits no change.
     - _Requirements: 1.1, 1.4, 3.2, 3.4_
-  - [ ] 6.2 Persistence, seeding and reset
+  - [x] 6.2 Persistence, seeding and reset
     - Files: `src/store/persistence.ts`, `src/store/seed.ts`.
     - Load/save `localStorage['hcr.cards.v1']` with the schema check from `design.md` §3; seed from `src/examples` when missing or invalid; `resetToSeed()`.
     - Done when: tests with a fake `localStorage` cover: empty → seeded six cards with `kind: 'seed'`; corrupt JSON → re-seeded; valid data → loaded unchanged; `resetToSeed` after an edit restores the bundled script.

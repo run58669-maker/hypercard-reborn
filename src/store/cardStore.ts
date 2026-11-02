@@ -3,6 +3,8 @@
 // anything that does not parse, so `Card.script` always holds a script that
 // parsed, and nothing else ever writes it.
 import { parse } from '../parser'
+import { loadCards, saveCards, type StorageLike } from './persistence'
+import { seedCards } from './seed'
 import type { Card, CardStore, CommitResult, StoreChange } from './types'
 
 export interface CardStoreOptions {
@@ -77,4 +79,31 @@ export function createCardStore(options: CardStoreOptions): CardStore {
 
 function sorted(cards: readonly Card[]): Card[] {
   return [...cards].sort((a, b) => a.number - b.number)
+}
+
+export interface OpenCardStoreOptions {
+  readonly storage: StorageLike
+  readonly now?: () => Date
+}
+
+/**
+ * The app's store: loads `hcr.cards.v1`, seeds from the bundled examples when
+ * the key is missing or invalid (and overwrites it), and persists every change.
+ */
+export function openCardStore(options: OpenCardStoreOptions): CardStore {
+  const now = options.now ?? (() => new Date())
+  const seed = (): readonly Card[] => seedCards(now())
+  let initial = loadCards(options.storage)
+  if (initial === null) {
+    initial = seed()
+    saveCards(options.storage, initial)
+  }
+  return createCardStore({
+    initial,
+    seed,
+    now,
+    persist: (cards) => {
+      saveCards(options.storage, cards)
+    },
+  })
 }
