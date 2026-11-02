@@ -176,3 +176,22 @@ export function withoutPositions<T>(value: T): T {
   }
   return value
 }
+
+/**
+ * Arithmetic trees over `+ - * div mod` and integer literals in [-50, 50]
+ * (negatives as unary minus over a literal), for the interpreter's
+ * reference-evaluator property. Divisors may be zero; the property skips
+ * those cases.
+ */
+export const arbArithmeticExpression: fc.Arbitrary<Expression> = fc.letrec<{ expr: Expression }>((tie) => ({
+  expr: fc.oneof(
+    { depthSize: 'small', maxDepth: 4, withCrossShrink: true },
+    fc.integer({ min: -50, max: 50 }).map((n): Expression => {
+      const literal: Expression = { kind: 'number', text: String(Math.abs(n)), ...at }
+      return n < 0 ? { kind: 'unary', operator: '-', operand: literal, ...at } : literal
+    }),
+    fc
+      .tuple(fc.constantFrom<'+' | '-' | '*' | 'div' | 'mod'>('+', '-', '*', 'div', 'mod'), tie('expr'), tie('expr'))
+      .map(([operator, left, right]): Expression => ({ kind: 'binary', operator, left, right, ...at })),
+  ),
+})).expr

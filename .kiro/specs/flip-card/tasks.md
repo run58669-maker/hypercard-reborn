@@ -103,7 +103,7 @@ after task 12 and complete after task 14.
     - `Host` exactly as `design.md` §5.1; `FakeHost` built from `CardObject[]`, records `calls` in order, exposes `dialogs`, `messages`, `navigations`, fixed `now`.
     - Done when: a test seeds two objects, renames one, and asserts `hasObject` finds it under the new name only and `calls` lists the exact sequence.
     - _Requirements: 1.2_
-  - [ ] 4.3 Expression evaluator and the arithmetic property
+  - [x] 4.3 Expression evaluator and the arithmetic property
     - Files: `src/interpreter/evaluate.ts`, `src/interpreter/evaluate.test.ts`.
     - Evaluates every expression node against a `Host` and a variable map; unset variable yields its name as spelled; `the date`/`the time` formats from `docs/grammar.md` §4; runtime errors returned, never thrown.
     - Properties (100 runs): for generated `+ - * div mod` trees over integers in [-50, 50] with non-zero divisors, the result equals a JS reference evaluator rendered with `renderNumber`; `a & b` has length `len(a)+len(b)`; `a && b` equals `a + " " + b`.
