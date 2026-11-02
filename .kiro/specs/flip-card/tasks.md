@@ -148,7 +148,7 @@ after task 12 and complete after task 14.
     - Commit success updates `script`, `scriptOrigin`, `updatedAt` and persists; `getCardByNumber` for 1..6 and 7; change notifications carry the right `kind`.
     - Done when: tests pass.
     - _Requirements: 1.1, 3.2_
-  - [ ] 6.4 Store properties
+  - [x] 6.4 Store properties
     - Files: `src/store/cardStore.properties.test.ts`.
     - Properties (200 runs): (a) for arbitrary strings `s`, after `commitScript(id, s)` the stored `script` is either unchanged (parse failed) or `=== s`; (b) `JSON.parse(JSON.stringify(card)).script` is byte-equal (`TextEncoder`) to `card.script` for arbitrary unicode strings including lone surrogates; (c) `saveDescription` leaves `script` unchanged for arbitrary inputs.
     - Done when: all three pass at 200 runs.
