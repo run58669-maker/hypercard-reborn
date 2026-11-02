@@ -155,7 +155,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.4, 2.2, 3.4_
 
 - [ ] 7. Compile service and the canned provider
-  - [ ] 7.1 Types and normalisation
+  - [x] 7.1 Types and normalisation
     - Files: `src/compile/types.ts`, `src/compile/normalise.ts`, `src/compile/normalise.test.ts`.
     - Types from `design.md` §6.1 plus `MissingKey` and `NoCannedMatch` error classes; `normalise` in the exact order of §6.3; `descriptionHash` helper using `crypto.subtle`.
     - Done when: tests show `"  The  Card. "` and `"the card"` normalise equal, and `"a.."` keeps one dot.
