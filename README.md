@@ -22,32 +22,111 @@ cards), and edit-and-rerun.
 
 ## Status
 
-Specification complete, implementation not started. See:
+Implemented: the flip-card spec in `.kiro/specs/flip-card/tasks.md` is executed through
+task 14. The app runs offline with the six bundled cards, every card flips to show its
+description and the script that runs, scripts are editable with an immediate re-run, and
+the compile-once pipeline works with the offline provider or your own Anthropic key.
 
 - `.kiro/steering/product.md` and `.kiro/steering/tech.md` for scope and stack rules
 - `.kiro/specs/flip-card/requirements.md`, `design.md`, `tasks.md` for the spec, and `examples/` for the six bundled cards
-- `docs/REVIEW.md` for the judge-style self-review and the fixes it led to
+- `.kiro/specs/flip-card/BLOCKED.md` for the one verification step that could not run in the build environment and notes on task wording
 - `docs/grammar.md` for the language and the six example cards
+- `docs/traceability.md` for the test that covers each acceptance criterion
+- `docs/demo.md` for the demo recording checklist
+- `docs/REVIEW.md` for the judge-style self-review and the fixes it led to
 
 ## Running
 
-The commands below are the contract the implementation tasks fulfil (task 1.1 onward). Until task 1 is executed, none of them work yet.
+Node 22 and npm. `npm install` also points git at `.githooks/`, so every commit runs the
+unit and property tests first.
 
 ```bash
 npm install
-npm run dev        # Vite dev server
-npm test           # Vitest unit + fast-check property tests
-npm run test:e2e   # Playwright against vite preview
-npm run build      # static bundle in dist/, runs with no backend
 ```
 
-Compile providers:
+```bash
+npm run dev
+```
 
-- **Offline (default):** the six bundled descriptions in `docs/grammar.md` compile with no key and no network.
-- **Anthropic (BYOK):** paste your own API key in Settings. It is stored in this browser's
-  `localStorage`, read only when you press Save on a description, and sent only to
-  `api.anthropic.com`. The app calls `claude-haiku-5-5` from the browser, which means the
-  key is visible to the page: use a personal key on a personal machine.
+The dev server prints its URL (usually `http://localhost:5173`). The other commands:
+
+```bash
+npm test
+```
+
+Vitest unit and fast-check property tests, the module-boundary check and the bundle check
+(which builds once into a temporary directory).
+
+```bash
+npm run test:e2e
+```
+
+Playwright against `vite preview` on port 4173; it builds first. On a fresh clone run
+`npx playwright install --with-deps chromium` once so the browser is present.
+
+```bash
+npm run lint
+```
+
+```bash
+npm run typecheck
+```
+
+```bash
+npm run build
+```
+
+The production bundle is one self-contained `dist/index.html` that opens from `file://`
+or any static host; there is no server. For a build with visible chunk boundaries (the
+interpreter in one chunk, the compile module with the Anthropic SDK in another, reached
+only through a dynamic `import()`), use:
+
+```bash
+npm run build:chunks
+```
+
+```bash
+npm run preview
+```
+
+Serves `dist/` on `http://localhost:4173`.
+
+### Compile providers
+
+- **Offline (default):** the six bundled descriptions in `docs/grammar.md` compile with no key
+  and no network. Pick one from the chips on the back of a card and press Save.
+- **Anthropic (BYOK):** open Settings, choose *Anthropic (my key)* and paste your own API key.
+  The app calls `claude-haiku-5-5` from the browser with structured output and makes exactly
+  one request per Save. The key is stored in this browser's `localStorage` under
+  `hcr.anthropicApiKey`, read only when you press Save on a description, and sent only to the
+  Anthropic API. Because the call is made from the page, the key is visible to the page: that
+  is the trade-off of bringing your own key, so use a personal key on a personal machine and
+  press *Forget key* when you are done.
+
+Whichever provider is selected, nothing calls it while a card runs or when you edit a script
+by hand: the runtime executes only the stored script with the project's own interpreter, and
+the Playwright isolation test counts zero network requests across every card, button and flip.
+
+### 60-second demo (offline)
+
+Start `npm run preview` (or open `dist/index.html`) in a fresh browser profile so the six
+cards are seeded.
+
+1. **Hello** (card 1 of 6): the greeting field already reads `Hello, world!`. Press **Flip**:
+   the description on the left, the script that runs on the right. Flip back.
+2. **Next** to **Counter**: press **Increment** three times, the field counts to 3.
+3. **Next** to **Date stamp**: the field is hidden on open; press **Stamp** and today's date
+   appears.
+4. **Next** to **Greeter**: press **Greet** with an empty name, then type a name and press
+   **Greet** again.
+5. **Next** to **Countdown**: press **Go**; the list fills from 10 down to `Liftoff!`.
+6. **Next** to **Quiz**: type `4` and press **Check**: `Correct!`, then OK takes you to
+   card 2. Go back to card 6.
+7. Flip the quiz card. In the *Draft* editor change `if field "answer" = 4 then` to
+   `= 5`, press **Commit** (or Ctrl/Cmd+Enter). The card re-runs at once. Flip back, type
+   `5`, press **Check**: `Correct!`.
+8. Flip again, break the script (delete `end if`), Commit: the parse error appears next to
+   the editor and the stored script, still running on the front, is unchanged.
 
 ## Working with Kiro
 

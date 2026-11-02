@@ -269,7 +269,7 @@ after task 12 and complete after task 14.
     - _Requirements: 1.3_
 
 - [ ] 14. Polish and hand-off
-  - [ ] 14.1 README
+  - [x] 14.1 README
     - Files: `README.md`.
     - Replace "(stub)" markers; real commands; BYOK trade-off; a 60-second demo script using the six bundled cards in order (hello → counter → date-stamp → greeter → countdown → quiz, then flip the quiz card, edit `4` to `5`, commit, answer `5`).
     - Done when: every command in the README runs as written on a fresh clone.
