@@ -1,16 +1,22 @@
-// The back face (design.md §7.2): description on the left, script on the
-// right. The read-only *Stored script* view is a <pre> whose textContent is
-// `card.script` exactly: no innerHTML, no trim, no highlighter (§7.4). The
-// editor (task 11) sits above it in the right column; the description panel
-// (task 12) replaces the read-only description on the left.
+// The back face (design.md §7.2): the description panel on the left, the
+// script on the right. The read-only *Stored script* view is a <pre> whose
+// textContent is `card.script` exactly: no innerHTML, no trim, no
+// highlighter (§7.4). The editor sits above it in the right column.
 import type { CardRuntime } from '../runtime'
-import type { Card, CardStore, ScriptOrigin } from '../store'
+import type { Card, CardStore } from '../store'
+import type { LoadCompiler } from './compiler'
+import { createDescriptionPanel, type DescriptionPanel } from './descriptionPanel'
 import { el, setChildren } from './dom'
 import { createEditor, type Editor } from './editor'
+import type { ProviderChoice } from './settings'
+
+export { originText } from './descriptionPanel'
 
 export interface BackFaceDeps {
   readonly store: CardStore
   readonly runtime: CardRuntime
+  readonly provider: () => ProviderChoice
+  readonly loadCompiler: LoadCompiler
 }
 
 export interface BackFace {
@@ -20,29 +26,11 @@ export interface BackFace {
   /** The right column: the editor, then the read-only stored view. */
   readonly right: HTMLElement
   readonly editor: Editor
+  readonly description: DescriptionPanel
   /** Renders the given card snapshot. */
   render(card: Card): void
   /** Mirrors the front-face status line (design.md §9). */
   setStatus(text: string): void
-}
-
-/** The script-origin line texts from design.md §7.2. */
-export function originText(origin: ScriptOrigin): string {
-  switch (origin.kind) {
-    case 'seed':
-      return 'bundled example'
-    case 'edited':
-      return `edited by hand at ${formatTime(origin.at)}`
-    case 'compiled':
-      return origin.provider === 'anthropic'
-        ? `compiled from this description with Anthropic ${origin.model ?? ''} at ${formatTime(origin.at)}`.replace('  ', ' ')
-        : `compiled offline at ${formatTime(origin.at)}`
-  }
-}
-
-function formatTime(iso: string): string {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString()
 }
 
 export interface BackFaceOptions {
@@ -51,14 +39,14 @@ export interface BackFaceOptions {
 }
 
 export function createBackFace(deps: BackFaceDeps, options: BackFaceOptions): BackFace {
-  const description = el('textarea', { class: 'description-input', testid: 'description-input', rows: 6, ariaLabel: 'Description' })
-  description.readOnly = true
-  const origin = el('p', { class: 'script-origin', testid: 'script-origin' })
-  const left = el('div', { class: 'back-column back-description' }, [
-    el('h3', { text: 'Description' }),
-    description,
-    origin,
-  ])
+  const description = createDescriptionPanel({
+    store: deps.store,
+    cardId: options.cardId,
+    provider: deps.provider,
+    loadCompiler: deps.loadCompiler,
+    ...(options.now === undefined ? {} : { now: options.now }),
+  })
+  const left = el('div', { class: 'back-column back-description' }, [description.element])
 
   const editor = createEditor({ store: deps.store, cardId: options.cardId, ...(options.now === undefined ? {} : { now: options.now }) })
   const stored = el('pre', { class: 'stored-script', testid: 'stored-script', ariaLabel: 'Stored script' })
@@ -73,12 +61,12 @@ export function createBackFace(deps: BackFaceDeps, options: BackFaceOptions): Ba
     left,
     right,
     editor,
+    description,
     setStatus(text) {
       status.textContent = text
     },
     render(card) {
-      description.value = card.description
-      origin.textContent = originText(card.scriptOrigin)
+      description.render(card)
       // The one string, read from the same snapshot the runtime was given.
       stored.textContent = card.script
       const program = deps.runtime.currentProgram(card.id)

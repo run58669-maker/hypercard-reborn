@@ -12,7 +12,7 @@ function setup(id = 'hello') {
   const runtime = createCardRuntime({ cardCount: () => 6, onNavigate: () => undefined, now: () => NOW })
   const card = store.getCard(id)
   if (card === undefined) throw new Error(`no card ${id}`)
-  const view = createCardView(card, { store, runtime })
+  const view = createCardView(card, { store, runtime, provider: () => 'canned', loadCompiler: () => Promise.reject(new Error('not loaded in this test')) })
   document.body.replaceChildren(view.element)
   view.show()
   const q = <T extends HTMLElement>(testid: string) => view.element.querySelector<T>(`[data-testid="${testid}"]`)

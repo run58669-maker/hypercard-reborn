@@ -3,6 +3,7 @@
 import type { CardRuntime } from '../runtime'
 import type { Card, CardStore, StorageLike } from '../store'
 import { createCardView, type CardView } from './cardView'
+import { lazyCompiler, type LoadCompiler } from './compiler'
 import { el } from './dom'
 import { createSettings } from './settings'
 
@@ -13,6 +14,8 @@ export interface AppDeps {
   readonly storage: StorageLike
   readonly confirm?: (message: string) => boolean
   readonly now?: () => Date
+  /** Defaults to a dynamic import() of src/compile; tests inject a fake. */
+  readonly loadCompiler?: LoadCompiler
 }
 
 export interface App {
@@ -32,7 +35,9 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     store: deps.store,
     storage: deps.storage,
     ...(deps.confirm === undefined ? {} : { confirm: deps.confirm }),
+    onProviderChange: () => view?.refresh(),
   })
+  const loadCompiler = deps.loadCompiler ?? lazyCompiler(deps.storage)
   const header = el('header', { class: 'app-header' }, [
     el('h1', { class: 'app-title', text: 'HyperCard Reborn' }),
     el('div', { class: 'card-heading' }, [name, position]),
@@ -67,7 +72,13 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     position.textContent = `Card ${String(n)} of ${String(count)}`
     prev.disabled = n <= 1
     next.disabled = n >= count
-    view = createCardView(card, { store: deps.store, runtime: deps.runtime, ...(deps.now === undefined ? {} : { now: deps.now }) })
+    view = createCardView(card, {
+      store: deps.store,
+      runtime: deps.runtime,
+      provider: () => settings.provider(),
+      loadCompiler,
+      ...(deps.now === undefined ? {} : { now: deps.now }),
+    })
     stage.replaceChildren(view.element)
     view.show()
   }

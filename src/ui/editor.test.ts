@@ -30,7 +30,7 @@ function inCard(id = 'hello') {
   const runtime = createCardRuntime({ cardCount: () => 6, onNavigate: () => undefined, now: () => NOW })
   const card = s.getCard(id)
   if (card === undefined) throw new Error(`no card ${id}`)
-  const view = createCardView(card, { store: s, runtime, now: () => NOW })
+  const view = createCardView(card, { store: s, runtime, now: () => NOW, provider: () => 'canned', loadCompiler: () => Promise.reject(new Error('not loaded in this test')) })
   document.body.replaceChildren(view.element)
   view.show()
   view.flip()

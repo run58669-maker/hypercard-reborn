@@ -5,12 +5,16 @@
 import type { CardRuntime } from '../runtime'
 import type { Card, CardStore } from '../store'
 import { createBackFace, type BackFace } from './backFace'
+import type { LoadCompiler } from './compiler'
 import { el } from './dom'
 import { createFrontFace } from './frontFace'
+import type { ProviderChoice } from './settings'
 
 export interface CardViewDeps {
   readonly store: CardStore
   readonly runtime: CardRuntime
+  readonly provider: () => ProviderChoice
+  readonly loadCompiler: LoadCompiler
   readonly now?: () => Date
 }
 
@@ -24,6 +28,8 @@ export interface CardView {
   show(): void
   face(): Face
   flip(): void
+  /** Re-renders the back face from the store (after a settings change). */
+  refresh(): void
   /** Tears the card down. */
   dispose(): void
 }
@@ -61,6 +67,8 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
     } else if (change.kind === 'reset' || (change.kind === 'script' && change.id === card.id)) {
       const current = latest()
       deps.runtime.rerun(current)
+      // A Save that compiled a new script resets the draft to it (design.md §8).
+      if (current.scriptOrigin.kind !== 'edited') back.editor.setDraft(current.script)
       back.render(current)
     }
   })
@@ -74,6 +82,9 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
       back.render(latest())
     },
     face: () => (element.dataset['face'] === 'back' ? 'back' : 'front'),
+    refresh() {
+      back.render(latest())
+    },
     flip() {
       if (view.face() === 'front') {
         back.render(latest())

@@ -240,7 +240,7 @@ after task 12 and complete after task 14.
     - Provider radio (`canned` default), key entry with the local-storage notice, Forget key, Reset to bundled cards (with a confirm), keys `hcr.compileProvider` and `hcr.anthropicApiKey`; `data-testid` names from `design.md` §7.3.
     - Done when: jsdom tests cover each control and that switching provider leaves every script unchanged.
     - _Requirements: 4.1_
-  - [ ] 12.2 Description panel and compile flow
+  - [x] 12.2 Description panel and compile flow
     - Files: `src/ui/descriptionPanel.ts`, `src/ui/descriptionPanel.test.ts`, `src/ui/backFace.ts`.
     - Editable description, Save (disabled while compiling), chips when the provider is `canned`, `compile` loaded with dynamic `import()`, `saveDescription` then `compile` then `commitScript` then `run`, the compile-error block including the rejected candidate for `invalid-script`, the stale-description notice via `descriptionHash`, script-origin line texts from `design.md` §7.2.
     - Done when: jsdom tests with a fake provider cover success, `invalid-script`, `no-canned-match`, double-click producing one call, and the stale notice.
