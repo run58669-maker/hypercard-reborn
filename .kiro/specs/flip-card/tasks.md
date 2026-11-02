@@ -25,7 +25,7 @@ after task 12 and complete after task 14.
     - Flat config with `@typescript-eslint` recommended-type-checked; `no-explicit-any` as error (tests may override to warn in `*.test.ts`).
     - Done when: `npm run lint` passes on the scaffold and fails on a file containing `let x: any`.
     - _Requirements: 1.3_
-  - [ ] 1.3 Module boundary rules
+  - [x] 1.3 Module boundary rules
     - Files: `eslint.config.js`, `src/parser/.keep`, `src/interpreter/.keep`, `src/store/.keep`, `src/runtime/.keep`, `src/compile/.keep`, `src/ui/.keep`, `src/examples/.keep`.
     - `no-restricted-imports` per the table in `design.md` §2, one config block per module directory. `src/ui` may import `src/compile` only with dynamic `import()`: forbid the static form with `no-restricted-imports` and allow the dynamic one.
     - Add `scripts/check-boundaries.test.ts` that writes a temporary file importing `@anthropic-ai/sdk` into `src/interpreter/`, runs ESLint programmatically, and asserts an error is reported (then removes the file).
