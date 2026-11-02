@@ -49,7 +49,7 @@ after task 12 and complete after task 14.
     - `Program`, `Handler`, every statement and expression node from `docs/grammar.md` §2-§4, each with `line` and `column`; `ParseError` and `ParseResult` from `design.md` §4.1. Discriminated unions with a `kind` field; no classes.
     - Done when: `npm run typecheck` passes and `ast.ts` has a node type for every production in the grammar (list them in the file header).
     - _Requirements: 1.4_
-  - [ ] 2.2 Lexer
+  - [x] 2.2 Lexer
     - Files: `src/parser/lexer.ts`, `src/parser/lexer.test.ts`.
     - `lex(source): Token[]` per `design.md` §4.2: token kinds, case-insensitive keywords from the reserved-word list in `docs/grammar.md` §1, `--` comments, `\n` and `\r\n`, strings without escapes, longest-match operators, `down` handling, synthetic newline at end of input, unknown-character and unterminated-string errors returned as `ParseError` (the lexer never throws).
     - Unit tests: one `it.each` row per token class, comment at end of statement, `\r\n`, unterminated string, unknown character, `&&` vs `&`.
