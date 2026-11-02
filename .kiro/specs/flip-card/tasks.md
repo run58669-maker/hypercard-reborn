@@ -204,7 +204,7 @@ after task 12 and complete after task 14.
     - Unit: for every seeded card, `currentProgram(id).source === getCard(id).script`. Property (200 runs over `arbProgram` printed to source): `commitScript(id, s)` then `getCard(id).script === s` and `currentProgram(id).source === s`, also compared as `TextEncoder` bytes.
     - Done when: both pass.
     - _Requirements: 1.2, 2.2_
-  - [ ] 9.4 App shell and front face
+  - [x] 9.4 App shell and front face
     - Files: `src/ui/app.ts`, `src/ui/cardView.ts`, `src/ui/frontFace.ts`, `src/ui/dom.ts`, `src/styles.css`, `src/main.ts`, `e2e/shell.spec.ts`.
     - Header (`card-name`, `card-position`, `card-prev`, `card-next`, `settings-open` placeholder), one card at a time, run on show, Flip control present but inert until task 10. No framework.
     - Done when: Playwright loads the app, sees `Card 1 of 6` and the greeting field reading `Hello, world!`, clicks Next, sees the counter card and increments it to `2`.
