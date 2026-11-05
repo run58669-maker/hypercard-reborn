@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "name": "Grammar and examples consistency",
+  "description": "Keeps docs/grammar.md, the six example cards in .kiro/specs/flip-card/examples/, src/examples and the compile prompt in agreement whenever any of them changes.",
+  "version": "2",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "docs/grammar.md",
+      ".kiro/specs/flip-card/examples/**",
+      "src/examples/**/*.ts",
+      "src/compile/prompt.ts"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "docs/grammar.md, .kiro/specs/flip-card/examples/, src/examples/ or src/compile/prompt.ts changed. These must agree: the EBNF and prose in docs/grammar.md define the language; .kiro/specs/flip-card/examples/<id>.hc/description.txt and script.hc hold the six example cards byte-for-byte as they appear under '## 8. Example scripts' in docs/grammar.md (extraction rule: design.md section 6.7: description.txt is the text after '**Description:** ' with no trailing newline, script.hc is the body of the hypertalk fence ending with exactly one newline); src/examples/index.ts imports those files with ?raw in the same order; src/compile/prompt.ts embeds docs/grammar.md plus those examples. Do the following: 1) Run `npm test -- src/examples src/compile` which includes the consistency test and the prompt snapshot. 2) If docs/grammar.md changed, diff the EBNF and the reserved-word list against src/parser (keywords in the lexer table, statement forms in the parser) and report any construct that is in one but not the other. 3) If an example description or script changed in either place, copy the change to the other place so they are byte-identical (check with a byte diff, not by eye), then confirm every example still parses by running the tests again. 4) If the prompt snapshot changed, update it only if the grammar or examples changed on purpose; otherwise explain the drift. Reply with a short list of what was in sync, what you changed, and anything you could not reconcile. Never edit the acceptance criteria in .kiro/specs/flip-card/requirements.md from this hook, and never change an example to make a failing parser test pass: the examples are the specification, the parser is the implementation."
+  }
+}

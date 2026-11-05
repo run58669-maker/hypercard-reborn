@@ -1,0 +1,12 @@
+#!/bin/sh
+# Plain-git twin of .kiro/hooks/pre-commit-tests.kiro.hook, for commits made
+# outside Kiro. Installed by `npm run prepare` (git config core.hooksPath
+# .githooks). Runs the unit and property test suite and refuses the commit
+# when anything fails. Do not skip tests to get a commit through: fix them.
+set -e
+cd "$(git rev-parse --show-toplevel)"
+echo "[pre-commit] running npm test"
+if ! npm test -- --run; then
+  echo "[pre-commit] npm test failed; commit refused." >&2
+  exit 1
+fi
