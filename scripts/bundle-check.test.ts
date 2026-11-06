@@ -22,6 +22,7 @@ function buildChunks(): Map<string, string> {
     execFileSync('npx', ['vite', 'build', '--mode', 'chunks', '--outDir', outDir, '--emptyOutDir'], {
       cwd: projectRoot,
       stdio: 'pipe',
+      shell: process.platform === 'win32', // Node >= 20 refuses to spawn .cmd without a shell
     })
     const assets = join(outDir, 'assets')
     const chunks = new Map<string, string>()

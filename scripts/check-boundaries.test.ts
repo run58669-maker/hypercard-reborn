@@ -34,7 +34,9 @@ function restrictedImportMessages(result: ESLint.LintResult): string[] {
 }
 
 describe('module boundaries', () => {
-  it('reports an error when src/interpreter imports @anthropic-ai/sdk', async () => {
+  // The first lint of a cold run builds the type-aware project, which takes
+  // longer than vitest's 5 s default; later tests reuse that work.
+  it('reports an error when src/interpreter imports @anthropic-ai/sdk', { timeout: 30_000 }, async () => {
     const result = await lintTemporaryFile(
       'src/interpreter',
       "import Anthropic from '@anthropic-ai/sdk'\nexport const client = Anthropic\n",
