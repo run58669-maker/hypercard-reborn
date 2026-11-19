@@ -72,7 +72,7 @@ unit tests so the regression is readable.
 
 ## 5. What was deliberately not vibe-coded
 
-- **The grammar.** `docs/grammar.md` was written and reviewed by hand before any parser
+- **The grammar.** `docs/grammar.md` was written and reviewed before any parser
   existed. The agent implements it; it does not extend it. Anything not in the document
   is a parse error by definition.
 - **The byte-identity and no-LLM-at-runtime guarantees.** These are enforced by module
@@ -83,8 +83,9 @@ unit tests so the regression is readable.
   work" with retries or fence-stripping.
 - **Error messages.** Parse and runtime messages are listed in the spec and frozen by
   snapshot tests, so the UI, the tests and the docs say the same thing.
-- **The example cards.** Six descriptions and their scripts were written by a person,
-  checked against the grammar by hand, and are the only thing the offline compiler knows.
+- **The example cards.** Six descriptions and their scripts were written in the spec
+  phase, are checked against the grammar by a test, and are the only thing the offline
+  compiler knows.
 
 What the agent *does* own: file layout inside the module boundaries, test scaffolding,
 DOM helpers, CSS, and the exact wording of internal comments.
