@@ -36,6 +36,25 @@
         "chatSessionId": "sess_470f21b8-41a2-486d-a57d-c55997e1bebb",
         "timestamp": 1795082527065
       }
+    ],
+    "16.2 Keyboard end-to-end": [
+      {
+        "executionId": "99d10fc7-3cd4-4eb9-8642-19e62fa75b13",
+        "chatSessionId": "sess_8f53fded-7561-452b-b712-9ed777e43fe9",
+        "timestamp": 1795083243812
+      },
+      {
+        "executionId": "99d10fc7-3cd4-4eb9-8642-19e62fa75b13",
+        "chatSessionId": "sess_8f53fded-7561-452b-b712-9ed777e43fe9",
+        "timestamp": 1795083322576
+      }
+    ],
+    "16. Keyboard access": [
+      {
+        "executionId": "99d10fc7-3cd4-4eb9-8642-19e62fa75b13",
+        "chatSessionId": "sess_8f53fded-7561-452b-b712-9ed777e43fe9",
+        "timestamp": 1795083322721
+      }
     ]
   }
 }
