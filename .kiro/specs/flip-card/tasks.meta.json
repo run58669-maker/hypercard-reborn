@@ -24,6 +24,18 @@
         "chatSessionId": "sess_c780c9a8-d217-49bb-b30f-119a91f41a1b",
         "timestamp": 1793617478837
       }
+    ],
+    "16.1 Arrow keys and Escape in the app shell": [
+      {
+        "executionId": "a59904f0-63a8-474a-964b-182b44530dc4",
+        "chatSessionId": "sess_470f21b8-41a2-486d-a57d-c55997e1bebb",
+        "timestamp": 1795082055841
+      },
+      {
+        "executionId": "a59904f0-63a8-474a-964b-182b44530dc4",
+        "chatSessionId": "sess_470f21b8-41a2-486d-a57d-c55997e1bebb",
+        "timestamp": 1795082527065
+      }
     ]
   }
 }

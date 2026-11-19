@@ -96,6 +96,30 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     go(number + 1)
   })
 
+  document.addEventListener('keydown', (event: KeyboardEvent) => {
+    // Global guards: already handled, modifier held, settings open, answer dialog present.
+    if (event.defaultPrevented) return
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+    if (settings.element.open) return
+    if (document.querySelector('[data-testid="answer-dialog"]') !== null) return
+
+    const key = event.key
+    if (key === 'ArrowRight' || key === 'ArrowLeft') {
+      // Arrow-only guards: editable target or on the back face.
+      const target = event.target
+      if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return
+      if (target instanceof Element && target.closest('[contenteditable]') !== null) return
+      if (view?.face() === 'back') return
+      event.preventDefault()
+      go(key === 'ArrowRight' ? number + 1 : number - 1)
+    } else if (key === 'Escape') {
+      if (view?.face() === 'back') {
+        event.preventDefault()
+        view.flip()
+      }
+    }
+  })
+
   return {
     element,
     go,

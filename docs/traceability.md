@@ -60,3 +60,13 @@ Test names below are the exact strings; `it.each` rows are named by their render
 | Exactly one provider call per compile | `src/compile/compileService.test.ts` > `calls the provider exactly once ...` (both tests) |
 | Runtime errors are returned values and never roll back the store | `src/interpreter/interpreter.test.ts` > `keeps side effects performed before the failing statement`, `runtime error messages (design.md §5.4)`; `src/runtime/cardRuntime.test.ts` > `writes runtime errors to the status line and reports them` |
 | Grammar, examples and prompt agree | `src/examples/consistency.test.ts` (all), `src/compile/prompt.test.ts` > `matches the snapshot` |
+
+## Requirement 5: Keyboard access to the stack and the flip
+
+| Criterion | Unit / property tests | Playwright |
+|---|---|---|
+| 5.1 Right Arrow goes to next card; does nothing on card 6 | `src/ui/app.test.ts` > `ArrowRight from card 1 goes to Card 2 of 6`, `ArrowRight on card 6 stays put` | `e2e/keyboard.spec.ts` > `ArrowRight five times reaches Card 6 of 6 and no further` |
+| 5.2 Left Arrow goes to previous card; does nothing on card 1 | `src/ui/app.test.ts` > `ArrowLeft on card 1 stays put` | — |
+| 5.3 Arrow keys do nothing while focus is in an editable element | `src/ui/app.test.ts` > `arrow key in a textarea does not change card` | `e2e/keyboard.spec.ts` > `ArrowLeft in a focused field does not change card` |
+| 5.4 Arrow keys do nothing on the back face, with the settings panel open, or with a modifier | `src/ui/app.test.ts` > `arrow key on the back face does not change card`, `arrow key while Shift held does not change card`, `arrow key while settings panel is open does not change card` | — |
+| 5.5 Escape on the back face flips to front without re-running; Escape on front does nothing | `src/ui/app.test.ts` > `Escape on the back face flips to front with draft unchanged`, `Escape on the front face does nothing` | `e2e/keyboard.spec.ts` > `Escape on the back face flips to front` |

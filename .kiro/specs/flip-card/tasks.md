@@ -302,7 +302,7 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - _Requirements: 2.1, 4.1_
 
 - [ ] 16. Keyboard access
-  - [ ] 16.1 Arrow keys and Escape in the app shell
+  - [x] 16.1 Arrow keys and Escape in the app shell
     - Files: `src/ui/app.ts`, `src/ui/app.test.ts` (new, jsdom), `docs/traceability.md`.
     - The `keydown` listener from `design.md` §7.1 *Keyboard*, with exactly the guards listed there. Reuse `go(n ± 1)` and `CardView.flip()`; no new `data-testid`.
     - Done when: `src/ui/app.test.ts` covers ArrowRight from card 1 to `Card 2 of 6`; ArrowLeft on card 1 and ArrowRight on card 6 staying put; no card change for an arrow pressed in a field's `textarea`, with Shift held, on the back face, and with the settings panel open; Escape from the back face with focus in `script-editor` returning to `front` with the draft unchanged; Escape on the front face doing nothing. `docs/traceability.md` has a Requirement 5 table with rows 5.1 to 5.5. `npm run lint`, `npm run typecheck` and `npm test` pass.
