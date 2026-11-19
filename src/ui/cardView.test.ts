@@ -77,6 +77,23 @@ describe('createCardView', () => {
     expect(runtime.currentProgram('hello')).toBeUndefined()
     expect(document.body.children).toHaveLength(0)
   })
+
+  it('clicking Flip on the back face with focus in script-editor moves focus to the flip button', () => {
+    const { view, q } = setup()
+    // Go to back face.
+    q<HTMLButtonElement>('flip')?.click()
+    expect(view.face()).toBe('back')
+    // Focus the script editor.
+    const editor = q<HTMLTextAreaElement>('script-editor')
+    expect(editor).not.toBeNull()
+    editor?.focus()
+    expect(document.activeElement).toBe(editor)
+    // Click the Flip button (which is the same button, now labelled "Flip back").
+    q<HTMLButtonElement>('flip')?.click()
+    expect(view.face()).toBe('front')
+    // Focus should now be on the flip button.
+    expect(document.activeElement).toBe(q<HTMLButtonElement>('flip'))
+  })
 })
 
 describe('originText', () => {

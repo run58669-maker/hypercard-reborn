@@ -39,7 +39,7 @@ test('ArrowRight five times reaches Card 6 of 6 and no further', async ({ page }
   await page.getByTestId('field-answer').fill('4')
   await page.getByTestId('button-check').click()
   await expect(page.getByTestId('answer-dialog')).toBeVisible()
-  // Unfocus any element so the guard is purely the dialog presence, not the textarea
+  // The answer dialog is now showing; the guard is its presence in the DOM.
   await page.keyboard.press('ArrowLeft')
   await expect(page.getByTestId('card-position')).toHaveText('Card 6 of 6')
 
@@ -81,6 +81,42 @@ test('Escape on the back face flips to front', async ({ page }) => {
   // 5.5: Escape flips back to front
   await page.keyboard.press('Escape')
   await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'front')
+
+  expect(requests).toEqual([])
+})
+
+test('Escape from script-editor flips to front, focuses flip, and keeps draft without xy', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForLoadState('load')
+  const requests: string[] = []
+  page.on('request', (request) => requests.push(`${request.method()} ${request.url()}`))
+
+  // 5.5: Flip the card, then click script-editor and type a draft
+  await page.getByTestId('flip').click()
+  await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'back')
+
+  await page.getByTestId('script-editor').click()
+  // Record the initial draft value before Escape
+  const initialDraft = await page.getByTestId('script-editor').inputValue()
+
+  // Press Escape
+  await page.keyboard.press('Escape')
+
+  // 5.5: should be on the front face
+  await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'front')
+
+  // 5.6: flip button should have focus
+  await expect(page.getByTestId('flip')).toBeFocused()
+
+  // Type 'xy' — since flip button is focused, not the editor, this won't go into the editor
+  await page.keyboard.type('xy')
+
+  // Flip back and verify draft does not end with 'xy'
+  await page.getByTestId('flip').click()
+  const draft = await page.getByTestId('script-editor').inputValue()
+  expect(draft.endsWith('xy')).toBe(false)
+  // The draft should equal the initial draft (not modified by the 'xy' typing)
+  expect(draft).toBe(initialDraft)
 
   expect(requests).toEqual([])
 })

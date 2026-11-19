@@ -304,4 +304,58 @@ describe('createApp keyboard handler', () => {
     expect(rerunSpy).not.toHaveBeenCalled()
     rerunSpy.mockRestore()
   })
+
+  it('ArrowLeft on card 1 does not call preventDefault', () => {
+    const { fire } = setup()
+    const event = fire('ArrowLeft')
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('ArrowRight on card 6 does not call preventDefault', () => {
+    const { app, fire } = setup()
+    app.go(6)
+    const event = fire('ArrowRight')
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('Escape with isComposing: true leaves the back face showing', () => {
+    const { q, fire } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    fire('Escape', { isComposing: true })
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('Escape with keyCode 229 leaves the back face showing', () => {
+    const { q } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    const event = new KeyboardEvent('keydown', { key: 'Escape', keyCode: 229, bubbles: true, cancelable: true })
+    document.body.dispatchEvent(event)
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('Escape from script-editor moves focus to the flip button', () => {
+    const { q } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    const editor = q<HTMLTextAreaElement>('script-editor')
+    expect(editor).not.toBeNull()
+    editor?.focus()
+    editor?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    // After flipping to front, focus should be on the flip button.
+    expect(document.activeElement).toBe(q<HTMLButtonElement>('flip'))
+  })
+
+  it('Escape from script-editor with a typed draft keeps the draft and focuses flip', () => {
+    const { q } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    const editor = q<HTMLTextAreaElement>('script-editor')
+    if (editor !== null) {
+      editor.value = 'on mouseUp\nend mouseUp'
+      editor.focus()
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    }
+    expect(document.activeElement).toBe(q<HTMLButtonElement>('flip'))
+    expect(q<HTMLTextAreaElement>('script-editor')?.value).toBe('on mouseUp\nend mouseUp')
+  })
 })

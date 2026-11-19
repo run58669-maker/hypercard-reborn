@@ -102,6 +102,8 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
     if (settings.element.open) return
     if (document.querySelector('[data-testid="answer-dialog"]') !== null) return
+    // IME guard (requirement 5.7): ignore keys consumed by input methods.
+    if (event.isComposing || event.keyCode === 229) return
 
     const key = event.key
     if (key === 'ArrowRight' || key === 'ArrowLeft') {
@@ -110,8 +112,12 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
       if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement || target instanceof HTMLSelectElement) return
       if (target instanceof Element && target.closest('[contenteditable]') !== null) return
       if (view?.face() === 'back') return
-      event.preventDefault()
-      go(key === 'ArrowRight' ? number + 1 : number - 1)
+      const nextNumber = key === 'ArrowRight' ? number + 1 : number - 1
+      if (deps.store.getCardByNumber(nextNumber) !== undefined) {
+        event.preventDefault()
+        go(nextNumber)
+      }
+      // No preventDefault when no neighbouring card (requirement 5.1/5.2: "does nothing").
     } else if (key === 'Escape') {
       if (view?.face() === 'back') {
         event.preventDefault()
