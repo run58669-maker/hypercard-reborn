@@ -108,6 +108,8 @@ input:focus-visible {
 
 .card-faces {
   display: grid;
+  /* minmax(0, ...) lets the track shrink below the widest unwrapped script line. */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .face {
@@ -233,14 +235,14 @@ input:focus-visible {
 
 .face-back {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
 
 @media (max-width: 719px) {
   .face-back {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
