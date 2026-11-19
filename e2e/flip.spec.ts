@@ -23,6 +23,26 @@ async function storedScriptMatchesLocalStorage(page: Page, id: string): Promise<
   }, id)
 }
 
+test('at phone width the back face stays inside the card and the page does not scroll sideways', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 })
+  await page.goto('/')
+  await page.getByTestId('card-next').click()
+  await page.getByTestId('flip').click()
+  await expect(page.getByTestId('card-back')).toBeVisible()
+
+  const card = await page.getByTestId('card').boundingBox()
+  if (card === null) throw new Error('card not laid out')
+  for (const id of ['save-description', 'description-input', 'commit-script', 'script-editor', 'stored-script']) {
+    const box = await page.getByTestId(id).boundingBox()
+    if (box === null) throw new Error(`${id} not laid out`)
+    expect(box.x + box.width, id).toBeLessThanOrEqual(card.x + card.width)
+  }
+  const scrollsSideways = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  )
+  expect(scrollsSideways).toBe(false)
+})
+
 for (const width of [1280, 600]) {
   test(`flip shows description and script side by side at ${String(width)}px and flips back without re-running`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
