@@ -414,6 +414,159 @@ input:focus-visible {
   margin-top: 6px !important;
 }
 
+/* --- 1987 look --------------------------------------------------------------
+   One-bit black and white, the way HyperCard shipped on a compact Mac: a
+   50% dither desktop, a white menu bar, windows with a striped title bar,
+   square corners and a hard one-pixel shadow. No images and no web fonts,
+   so the bundle stays a single offline file. */
+
+:root {
+  --ink: #000000;
+  --paper: #ffffff;
+  --card: #ffffff;
+  --line: #555555;
+  --accent: #000000;
+  --error: #000000;
+  --dither: repeating-conic-gradient(#000 0 25%, #fff 0 50%) 0 0 / 2px 2px;
+  --stripes: repeating-linear-gradient(180deg, #000 0 1px, #fff 1px 3px);
+  font-family: "Chicago", "ChicagoFLF", "Charcoal", "Geneva", "Lucida Grande", "Verdana", sans-serif;
+  -webkit-font-smoothing: none;
+}
+
+body {
+  background: var(--dither);
+  min-height: 100vh;
+}
+
+.app-header {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0 #000;
+  padding: 4px 12px;
+  margin-bottom: 12px;
+}
+
+.app-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.app-title::before {
+  content: "\25A4";
+  margin-right: 6px;
+}
+
+.card-name,
+.card-position {
+  font-size: 1rem;
+}
+
+.app-intro {
+  background: #fff;
+  border: 1px solid #000;
+  box-shadow: 1px 1px 0 #000;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+}
+
+button {
+  border: 1px solid #000;
+  border-radius: 8px;
+  box-shadow: 1px 1px 0 #000;
+  padding: 3px 12px;
+}
+
+button:not(:disabled):active {
+  background: #000;
+  color: #fff;
+}
+
+button:disabled {
+  box-shadow: none;
+  border-style: dotted;
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px dotted #000;
+}
+
+.card,
+.answer-dialog,
+.settings {
+  border: 1px solid #000;
+  border-radius: 0;
+  box-shadow: 2px 2px 0 #000;
+}
+
+/* The toolbar doubles as the window's title bar. */
+.card {
+  padding: 0 12px 12px;
+}
+
+.card-toolbar {
+  align-items: center;
+  gap: 8px;
+  background: var(--stripes);
+  border-bottom: 1px solid #000;
+  margin: 0 -12px 12px;
+  padding: 4px 8px;
+}
+
+.flip-hint {
+  background: #fff;
+  padding: 1px 8px;
+}
+
+.card[data-face="back"] .flip-hint {
+  display: none;
+}
+
+.flip {
+  font-weight: 700;
+}
+
+.card-canvas {
+  border: 1px solid #000;
+  background: #fff;
+}
+
+.card-button {
+  border-radius: 10px;
+}
+
+.description-input,
+.stored-script,
+.script-editor,
+.settings-group,
+.settings-group input[type="password"],
+.stale-notice {
+  border-radius: 0;
+}
+
+.stored-script {
+  background: #fff;
+  color: #000;
+}
+
+.error-panel {
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+}
+
+.status-line:not(:empty)::before,
+.status-mirror:not(:empty)::before {
+  content: "\26A0\00A0";
+}
+
+.chip {
+  border-radius: 10px;
+}
+
 .compile-candidate {
   margin-top: 6px;
   color: var(--ink);

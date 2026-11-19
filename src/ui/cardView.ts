@@ -39,7 +39,9 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
   const back = createBackFace(deps, { cardId: card.id, ...(deps.now === undefined ? {} : { now: deps.now }) })
   const flip = el('button', { class: 'flip', testid: 'flip', text: 'Flip', title: 'Flip the card' })
   const faces = el('div', { class: 'card-faces' }, [front.element, back.element])
-  const element = el('article', { class: 'card', testid: 'card' }, [el('div', { class: 'card-toolbar' }, [flip]), faces])
+  // Shown on the front face only (CSS hides it on the back): points a first-time visitor at Flip.
+  const flipHint = el('span', { class: 'flip-hint', testid: 'flip-hint', text: 'The script is on the back →' })
+  const element = el('article', { class: 'card', testid: 'card' }, [el('div', { class: 'card-toolbar' }, [flipHint, flip]), faces])
 
   const latest = (): Card => deps.store.getCard(card.id) ?? card
 
