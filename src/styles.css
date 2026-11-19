@@ -1,0 +1,418 @@
+/* HyperCard Reborn: plain CSS, no framework. The card canvas is 512 x 342
+   px and is scaled down to fit narrow viewports with --card-scale. */
+
+:root {
+  --ink: #1b1b1b;
+  --paper: #f4f1ea;
+  --card: #ffffff;
+  --line: #8a8578;
+  --accent: #2b4c7e;
+  --error: #9b1c1c;
+  --card-scale: 1;
+  color-scheme: light;
+  font-family: "Chicago", "Charcoal", "Helvetica Neue", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.app {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px 24px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 8px;
+  margin-bottom: 16px;
+}
+
+.app-title {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.card-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex: 1;
+}
+
+.card-name {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.card-position {
+  margin: 0;
+  color: var(--line);
+}
+
+.card-nav {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  padding: 4px 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:disabled {
+  color: var(--line);
+  border-color: var(--line);
+  cursor: default;
+}
+
+button:focus-visible,
+textarea:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Card ----------------------------------------------------------------- */
+
+.card {
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 12px;
+}
+
+.card-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.card-faces {
+  display: grid;
+}
+
+.face {
+  grid-area: 1 / 1;
+}
+
+.card-scaler {
+  width: calc(512px * var(--card-scale));
+  height: calc(342px * var(--card-scale));
+  margin: 0 auto;
+}
+
+.card-canvas {
+  position: relative;
+  width: 512px;
+  height: 342px;
+  border: 1px solid var(--line);
+  background: repeating-linear-gradient(0deg, #fff 0 23px, #f3f3f3 23px 24px);
+  transform: scale(var(--card-scale));
+  transform-origin: top left;
+  overflow: hidden;
+}
+
+.card-object {
+  position: absolute;
+  font: inherit;
+  margin: 0;
+}
+
+.card-field {
+  border: 1px solid var(--ink);
+  background: #fff;
+  padding: 4px 6px;
+  resize: none;
+  white-space: pre;
+  overflow: auto;
+}
+
+.card-button {
+  border-radius: 14px;
+  padding: 0;
+}
+
+.card-object[hidden] {
+  display: none;
+}
+
+.message-box,
+.status-line {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+.status-line {
+  color: var(--error);
+}
+
+.message-box {
+  color: var(--accent);
+}
+
+.answer-dialog {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 20px 24px;
+  font: inherit;
+  min-width: 240px;
+}
+
+.answer-dialog p {
+  margin: 0 0 16px;
+  white-space: pre-wrap;
+}
+
+.answer-dialog form {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- Flip ------------------------------------------------------------------ */
+
+.card-faces {
+  perspective: 1600px;
+}
+
+.face {
+  backface-visibility: hidden;
+  transition:
+    transform 0.6s ease,
+    visibility 0s linear 0.3s;
+}
+
+.face-front {
+  transform: rotateY(0deg);
+}
+
+.face-back {
+  transform: rotateY(180deg);
+  visibility: hidden;
+}
+
+.card[data-face="back"] .face-front {
+  transform: rotateY(-180deg);
+  visibility: hidden;
+}
+
+.card[data-face="back"] .face-back {
+  transform: rotateY(0deg);
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face {
+    transition: none;
+  }
+}
+
+/* --- Back face ------------------------------------------------------------- */
+
+.face-back {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 719px) {
+  .face-back {
+    grid-template-columns: 1fr;
+  }
+}
+
+.back-column h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.description-input,
+.stored-script,
+.script-editor {
+  width: 100%;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  margin: 0;
+}
+
+.description-input {
+  font-family: inherit;
+  resize: vertical;
+}
+
+.stored-script {
+  white-space: pre;
+  overflow: auto;
+  min-height: 6em;
+  color: #333;
+  background: #fafaf7;
+}
+
+.script-origin {
+  margin: 6px 0 0;
+  color: var(--line);
+  font-size: 0.85rem;
+}
+
+/* --- Editor and error panels ---------------------------------------------- */
+
+.editor-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.editor-heading h3 {
+  margin: 0;
+}
+
+.script-editor {
+  white-space: pre;
+  resize: vertical;
+  tab-size: 2;
+}
+
+.stored-block {
+  margin-top: 12px;
+}
+
+.error-panel {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--error);
+  border-radius: 6px;
+  background: #fff4f4;
+  color: var(--error);
+}
+
+.error-panel p {
+  margin: 0;
+}
+
+.error-near {
+  margin: 6px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre;
+  overflow: auto;
+}
+
+.status-mirror {
+  margin-top: 8px;
+}
+
+/* --- Settings -------------------------------------------------------------- */
+
+.settings {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+  padding: 20px 24px;
+  max-width: 480px;
+  font: inherit;
+}
+
+.settings h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
+}
+
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.settings-group input[type="password"] {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+}
+
+.settings-note {
+  margin: 0;
+  color: var(--line);
+  font-size: 0.85rem;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* --- Description panel ----------------------------------------------------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.chips-label {
+  font-size: 0.85rem;
+  color: var(--line);
+}
+
+.chip {
+  border-radius: 14px;
+  padding: 2px 10px;
+  font-size: 0.85rem;
+}
+
+.compile-status {
+  min-height: 1.4em;
+  margin: 6px 0 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.stale-notice {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.candidate-label {
+  margin-top: 6px !important;
+}
+
+.compile-candidate {
+  margin-top: 6px;
+  color: var(--ink);
+}

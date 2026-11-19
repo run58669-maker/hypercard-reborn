@@ -4,6 +4,15 @@
 
 Scope: the flip action only. A card holds a natural-language description and the HyperTalk-subset script compiled from it. The runtime executes only the stored script via our own interpreter.
 
+### Glossary
+
+- **Card**: one unit of the stack, with a description, a stored script and a set of fields and buttons.
+- **Stored script**: the exact string held in `Card.script`; the only thing the runtime executes.
+- **Run**: reset the card's live field text and visibility from its layout, then send `openCard` to the stored script.
+- **The LLM** / **compile provider**: whatever turns a description into a script on Save. The offline provider that serves the six bundled descriptions counts as a compile provider for every criterion below, so the pipeline is identical with and without a key.
+- **Flip**: toggle a card between its front face (the running card) and its back face (description and script side by side).
+- **Commit**: the explicit action (button or keyboard shortcut) that submits an edited script.
+
 ## Requirement 1: Compile once, run the stored script
 
 **User story:** As a card author, I want my natural-language description compiled once into a script stored on the card, so that what runs is deterministic and inspectable.
@@ -35,3 +44,13 @@ Scope: the flip action only. A card holds a natural-language description and the
 2. WHEN the user commits a valid script edit, THE system SHALL store the edited script on the card and re-run the card immediately.
 3. WHEN the user edits the script directly, THE system SHALL NOT call the LLM.
 4. IF the edited script fails to parse, THEN THE system SHALL keep the last valid script running and show the parse error next to the editor.
+
+## Requirement 4: Offline by default, no network at runtime
+
+**User story:** As a demo viewer, I want the app to work with no key and no network, so that what I see running is provably the stored script and nothing else.
+
+### Acceptance criteria
+
+1. WHEN the app is loaded for the first time in a browser, THE system SHALL seed the six bundled example cards and select the offline compile provider, with no key required.
+2. WHILE the offline provider is selected, WHEN the author saves one of the six bundled descriptions, THE system SHALL compile it to its bundled script without any network request.
+3. WHILE any card is running or being flipped, THE system SHALL make no network request of any kind.

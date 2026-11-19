@@ -1,0 +1,1 @@
+When the "Stamp" button is clicked, put today's date into the field "stamp" and show the field. When the card opens, hide the field "stamp".

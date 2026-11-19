@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Tests before any commit",
+  "description": "Blocks any shell command that would create a git commit until `npm test` passes. Runs as a pre-tool-use hook on the shell tool; the script inspects the command text and only runs the test suite when the command contains `git commit`. Exit code 2 blocks the commit.",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "node .kiro/hooks/scripts/pre-commit-tests.mjs"
+  }
+}

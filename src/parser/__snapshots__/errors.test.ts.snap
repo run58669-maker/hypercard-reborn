@@ -1,0 +1,217 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parse errors > block statement after single-line else 1`] = `
+{
+  "column": 8,
+  "line": 3,
+  "message": "a single-line if cannot contain "if" or "repeat"",
+  "near": "  else repeat forever",
+}
+`;
+
+exports[`parse errors > block statement after single-line then 1`] = `
+{
+  "column": 13,
+  "line": 2,
+  "message": "a single-line if cannot contain "if" or "repeat"",
+  "near": "  if a then if b then put 1",
+}
+`;
+
+exports[`parse errors > chained comparison 1`] = `
+{
+  "column": 13,
+  "line": 2,
+  "message": "expected newline, found "="",
+  "near": "  put a = b = c",
+}
+`;
+
+exports[`parse errors > crlf line endings 1`] = `
+{
+  "column": 9,
+  "line": 2,
+  "message": "expected newline, found "2"",
+  "near": "  put 1 2",
+}
+`;
+
+exports[`parse errors > duplicate handler 1`] = `
+{
+  "column": 1,
+  "line": 4,
+  "message": "duplicate handler "mouseUp"",
+  "near": "on mouseUp",
+}
+`;
+
+exports[`parse errors > else without if 1`] = `
+{
+  "column": 3,
+  "line": 2,
+  "message": "expected a statement, found "else"",
+  "near": "  else",
+}
+`;
+
+exports[`parse errors > empty handler missing end 1`] = `
+{
+  "column": 1,
+  "line": 2,
+  "message": "expected "end mouseUp", found end of script",
+  "near": "",
+}
+`;
+
+exports[`parse errors > end at end of input 1`] = `
+{
+  "column": 4,
+  "line": 2,
+  "message": "expected "end mouseUp", found newline",
+  "near": "end",
+}
+`;
+
+exports[`parse errors > end if closes a repeat 1`] = `
+{
+  "column": 7,
+  "line": 4,
+  "message": "expected "end repeat", found "end if"",
+  "near": "  end if",
+}
+`;
+
+exports[`parse errors > end names a different handler 1`] = `
+{
+  "column": 5,
+  "line": 3,
+  "message": "expected "end mouseUp", found "end openCard"",
+  "near": "end openCard",
+}
+`;
+
+exports[`parse errors > go without card 1`] = `
+{
+  "column": 6,
+  "line": 2,
+  "message": "expected "card", found "2"",
+  "near": "  go 2",
+}
+`;
+
+exports[`parse errors > missing closing parenthesis 1`] = `
+{
+  "column": 13,
+  "line": 2,
+  "message": "expected ")", found newline",
+  "near": "  put (1 + 2",
+}
+`;
+
+exports[`parse errors > missing then 1`] = `
+{
+  "column": 7,
+  "line": 2,
+  "message": "expected "then", found newline",
+  "near": "  if x",
+}
+`;
+
+exports[`parse errors > put into button 1`] = `
+{
+  "column": 16,
+  "line": 2,
+  "message": "cannot put into a button; use set name of button",
+  "near": "  put "x" into button "b"",
+}
+`;
+
+exports[`parse errors > repeat with reserved counter 1`] = `
+{
+  "column": 15,
+  "line": 2,
+  "message": "expected a variable name, found "to"",
+  "near": "  repeat with to = 1 to 3",
+}
+`;
+
+exports[`parse errors > reserved word as variable 1`] = `
+{
+  "column": 14,
+  "line": 2,
+  "message": "expected a variable name, found "end"",
+  "near": "  put 1 into end",
+}
+`;
+
+exports[`parse errors > statement outside a handler 1`] = `
+{
+  "column": 1,
+  "line": 1,
+  "message": "expected "on", found "put"",
+  "near": "put 1",
+}
+`;
+
+exports[`parse errors > unknown built-in 1`] = `
+{
+  "column": 11,
+  "line": 2,
+  "message": "expected "date", "time" or "target", found "mouseLoc"",
+  "near": "  put the mouseLoc",
+}
+`;
+
+exports[`parse errors > unknown character 1`] = `
+{
+  "column": 7,
+  "line": 2,
+  "message": "unexpected character "~"",
+  "near": "  put ~",
+}
+`;
+
+exports[`parse errors > unknown handler name 1`] = `
+{
+  "column": 4,
+  "line": 1,
+  "message": "expected "mouseUp" or "openCard", found "foo"",
+  "near": "on foo",
+}
+`;
+
+exports[`parse errors > unknown property in set 1`] = `
+{
+  "column": 7,
+  "line": 2,
+  "message": "expected "visible", "enabled" or "name", found "x"",
+  "near": "  set x of field "f" to 1",
+}
+`;
+
+exports[`parse errors > unterminated string at end of script 1`] = `
+{
+  "column": 11,
+  "line": 2,
+  "message": "expected closing quote, found end of script",
+  "near": "",
+}
+`;
+
+exports[`parse errors > unterminated string at newline 1`] = `
+{
+  "column": 11,
+  "line": 2,
+  "message": "expected closing quote, found newline",
+  "near": "  put "abc",
+}
+`;
+
+exports[`parse errors > wrong token 1`] = `
+{
+  "column": 9,
+  "line": 2,
+  "message": "expected newline, found "2"",
+  "near": "  put 1 2",
+}
+`;

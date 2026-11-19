@@ -1,0 +1,1 @@
+There is a field "name" and a button "Greet". When Greet is clicked, if the name field is empty, answer "Please enter your name."; otherwise answer "Hello, " followed by the name and an exclamation mark.
