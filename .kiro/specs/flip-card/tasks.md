@@ -313,7 +313,7 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - If Playwright's own Chromium is not installed on the machine, run the spec with `PW_CHANNEL=chrome` (see `testing.md`).
     - Done when: the spec passes and its name is in the Playwright column of rows 5.1 to 5.5.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 4.3_
-  - [ ] 16.3 Keyboard unit tests that can fail
+  - [x] 16.3 Keyboard unit tests that can fail
     - Files: `src/ui/app.test.ts`, `docs/traceability.md`. No change to `src/`.
     - Review of 16.1 found that `fire()` builds events that cannot be cancelled, so `preventDefault()` has no effect and the `defaultPrevented` guard is never exercised; that each test's app keeps its `document` listener after the test ends; and that only Shift and a `textarea` are tried, with no unit test for the answer-dialog guard or for any guard on Escape.
     - Make every synthetic key event `cancelable: true` and dispatch it from `document.body` or the focused element, never from `document`. In `afterEach`, remove every listener the test's `createApp` added to `document` and `window` (record them by spying on `addEventListener`); `App` gets no `dispose()`.

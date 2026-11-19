@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCardRuntime } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createApp } from './app'
@@ -15,6 +15,34 @@ function fakeStorage(entries: Record<string, string> = {}) {
   }
 }
 
+// Listeners added to `document` and `window` by createApp, collected so afterEach
+// can remove them all and prevent leakage between tests.
+type EventEntry = { target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options: boolean | AddEventListenerOptions | undefined }
+let captured: EventEntry[] = []
+
+beforeEach(() => {
+  captured = []
+  const origDoc = document.addEventListener.bind(document)
+  const origWin = window.addEventListener.bind(window)
+  vi.spyOn(document, 'addEventListener').mockImplementation((type, listener, options?) => {
+    captured.push({ target: document, type, listener, options })
+    origDoc(type, listener, options)
+  })
+  vi.spyOn(window, 'addEventListener').mockImplementation((type, listener, options?) => {
+    captured.push({ target: window, type, listener, options })
+    origWin(type, listener, options)
+  })
+})
+
+afterEach(() => {
+  for (const { target, type, listener, options } of captured) {
+    target.removeEventListener(type, listener, options)
+  }
+  captured = []
+  vi.restoreAllMocks()
+  document.body.replaceChildren()
+})
+
 function setup() {
   const store = createCardStore({ initial: seedCards(NOW), now: () => NOW })
   const runtime = createCardRuntime({ cardCount: () => store.getCards().length, onNavigate: (n) => { app.go(n) }, now: () => NOW })
@@ -26,7 +54,6 @@ function setup() {
     runtime,
     storage,
     now: () => NOW,
-    // Inject a no-op compiler so no dynamic import fires in tests.
     loadCompiler: () => Promise.reject(new Error('compiler not loaded in this test')),
   })
   app.go(1)
@@ -34,16 +61,15 @@ function setup() {
   const q = <T extends HTMLElement>(testid: string) =>
     root.querySelector<T>(`[data-testid="${testid}"]`)
 
-  function fire(key: string, options: KeyboardEventInit = {}) {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, ...options }))
+  // Dispatch from document.body with cancelable: true so defaultPrevented guards are exercised.
+  function fire(key: string, options: KeyboardEventInit = {}): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options })
+    document.body.dispatchEvent(event)
+    return event
   }
 
   return { store, runtime, app, root, q, fire }
 }
-
-afterEach(() => {
-  document.body.replaceChildren()
-})
 
 describe('createApp keyboard handler', () => {
   it('ArrowRight from card 1 goes to Card 2 of 6', () => {
@@ -72,7 +98,7 @@ describe('createApp keyboard handler', () => {
     const textarea = q<HTMLTextAreaElement>('field-greeting')
     expect(textarea).not.toBeNull()
     if (textarea !== null) {
-      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
     }
     expect(q('card-position')?.textContent).toBe('Card 1 of 6')
   })
@@ -127,5 +153,155 @@ describe('createApp keyboard handler', () => {
     // Still on the front face.
     expect(q('card-front')?.getAttribute('aria-hidden')).toBe('false')
     expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  // --- New tests for task 16.3 ---
+
+  it('defaultPrevented guard: a pre-cancelled ArrowRight does not change card', () => {
+    const { q } = setup()
+    // Attach a listener that calls preventDefault() before the app's listener fires.
+    const preCancel = (event: Event): void => { event.preventDefault() }
+    document.body.addEventListener('keydown', preCancel, { capture: true })
+    try {
+      const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })
+      document.body.dispatchEvent(event)
+    } finally {
+      document.body.removeEventListener('keydown', preCancel, { capture: true })
+    }
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('handled ArrowRight sets defaultPrevented on the event', () => {
+    const { fire } = setup()
+    const event = fire('ArrowRight')
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('handled Escape from the back face sets defaultPrevented on the event', () => {
+    const { q, fire } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    const event = fire('Escape')
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it.each([
+    ['altKey', { altKey: true }],
+    ['ctrlKey', { ctrlKey: true }],
+    ['metaKey', { metaKey: true }],
+  ] as const)('arrow key with %s held does not change card', (_modifier, options) => {
+    const { q, fire } = setup()
+    fire('ArrowRight', options)
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('ArrowRight from an input element does not change card', () => {
+    const { q } = setup()
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    try {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    } finally {
+      input.remove()
+    }
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('ArrowRight from a select element does not change card', () => {
+    const { q } = setup()
+    const select = document.createElement('select')
+    document.body.appendChild(select)
+    try {
+      select.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    } finally {
+      select.remove()
+    }
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('ArrowRight from inside a contenteditable element does not change card', () => {
+    const { q } = setup()
+    const div = document.createElement('div')
+    div.setAttribute('contenteditable', 'true')
+    const span = document.createElement('span')
+    div.appendChild(span)
+    document.body.appendChild(div)
+    try {
+      span.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    } finally {
+      div.remove()
+    }
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('answer-dialog guard: ArrowRight does not change card when dialog is present', () => {
+    const { q } = setup()
+    const dialog = document.createElement('div')
+    dialog.dataset['testid'] = 'answer-dialog'
+    document.body.appendChild(dialog)
+    try {
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    } finally {
+      dialog.remove()
+    }
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+  })
+
+  it('answer-dialog guard: Escape leaves the back face showing when dialog is present', () => {
+    const { q } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    const dialog = document.createElement('div')
+    dialog.dataset['testid'] = 'answer-dialog'
+    document.body.appendChild(dialog)
+    try {
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    } finally {
+      dialog.remove()
+    }
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('settings panel guard: Escape leaves back face showing when settings panel is open', () => {
+    const { q } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    // Click the settings-open button: this calls settings.open() -> showModal() or setAttribute('open','')
+    q<HTMLButtonElement>('settings-open')?.click()
+    // Confirm the panel has open (jsdom sets it via showModal or setAttribute fallback)
+    const panel = document.querySelector<HTMLDialogElement>('[data-testid="settings-panel"]')
+    expect(panel?.hasAttribute('open')).toBe(true)
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('Escape with Ctrl held leaves back face showing', () => {
+    const { q, fire } = setup()
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    fire('Escape', { ctrlKey: true })
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+  })
+
+  it('Escape from script-editor flips to front without re-running the card', () => {
+    const { q, runtime } = setup()
+    // Spy on rerun to assert it is never called.
+    const rerunSpy = vi.spyOn(runtime, 'rerun')
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('false')
+    const editor = q<HTMLTextAreaElement>('script-editor')
+    expect(editor).not.toBeNull()
+    if (editor !== null) {
+      // Simulate a draft edit without committing.
+      editor.value = 'on openCard\nend openCard'
+      editor.dispatchEvent(new Event('input', { bubbles: true }))
+      // Dispatch Escape from the editor itself.
+      editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    }
+    // Card should have flipped to front.
+    expect(q('card-front')?.getAttribute('aria-hidden')).toBe('false')
+    expect(q('card-back')?.getAttribute('aria-hidden')).toBe('true')
+    // rerun must not have been called by the Escape.
+    expect(rerunSpy).not.toHaveBeenCalled()
+    rerunSpy.mockRestore()
   })
 })
