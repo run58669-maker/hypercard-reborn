@@ -2,6 +2,12 @@
 
 Kiroween 2026 · Resurrection · HyperCard reborn — every card can be flipped to show the script that actually runs.
 
+**Live demo:** https://run58669-maker.github.io/hypercard-reborn/ (one static file, works offline, no key needed)
+
+| Front: the card running | Back: the description and the script that runs |
+|---|---|
+| ![Front of the Hello card](docs/screenshots/front.png) | ![Back of the Hello card](docs/screenshots/back.png) |
+
 ## Pitch
 
 In 1987 HyperCard let anyone build software by describing what a button should do, in
@@ -26,6 +32,9 @@ Implemented: the flip-card spec in `.kiro/specs/flip-card/tasks.md` is executed 
 task 14. The app runs offline with the six bundled cards, every card flips to show its
 description and the script that runs, scripts are editable with an immediate re-run, and
 the compile-once pipeline works with the offline provider or your own Anthropic key.
+The first screen carries a one-sentence introduction and a pointer to **Flip**, and the
+styling is one-bit black and white in the manner of a 1987 compact Mac (CSS only, no
+images or web fonts).
 
 - `.kiro/steering/product.md` and `.kiro/steering/tech.md` for scope and stack rules
 - `.kiro/specs/flip-card/requirements.md`, `design.md`, `tasks.md` for the spec, and `examples/` for the six bundled cards
@@ -130,8 +139,26 @@ cards are seeded.
 
 ## Working with Kiro
 
-This project is spec-driven: the `.kiro/` directory is the product, the code is what
-Kiro produces from it. `.kiro/steering/kiro-usage.md` is the long version; this is the short one.
+This project is spec-driven: the `.kiro/` directory came first and the code was written
+against it, one `tasks.md` sub-task per commit. `.kiro/steering/kiro-usage.md` is the long
+version; this is the short one.
+
+### Who built what
+
+Stated plainly, so nobody has to guess from the commit log:
+
+| Part | Built by | Evidence |
+|---|---|---|
+| The spec, steering files and hooks in `.kiro/`, and `docs/grammar.md` | Claude Code sessions, reviewed by the author | commits `8431ca4`, `7c95a1a`, `266cae7`, `904949a` |
+| Tasks 1.1 and 1.2 (Vite, TypeScript, Vitest, fast-check scaffold; ESLint flat config) | **Kiro**, executing the spec tasks from the Kiro spec view in autopilot | commit `1435f54`; `.kiro/specs/flip-card/tasks.meta.json` holds the execution ids Kiro wrote for both tasks |
+| Tasks 1.3 to 14.3 (parser, interpreter, store, compile pipeline, runtime, UI, tests) | Claude Code, following the same `tasks.md` in order, one sub-task per commit | the 45 commits authored `Claude` and titled `flip-card <task number>` |
+| CI fixes on Windows and for the boundary check, the phone-width fix, the first-screen introduction and the 1987 styling | Claude Code, outside the spec's task list | pull requests #2, #3 and #4 |
+
+So Kiro executed 2 of the 47 sub-tasks. The spec, steering and hooks are real Kiro
+artefacts and Kiro ran against them, but most of the implementation was not typed by
+Kiro's agent. The three hooks are configured in `.kiro/hooks/`, and the pre-commit gate
+has a plain-git twin in `.githooks/` that ran on every commit; whether the two `askAgent`
+hooks fired inside Kiro during tasks 1.1 and 1.2 was not recorded.
 
 **Spec** (`.kiro/specs/flip-card/`)
 
@@ -165,8 +192,9 @@ in `tasks.md`: `parse()` never throws, lossless lexing, print/parse round trip, 
 identity through the store and the runtime, arithmetic against a reference evaluator.
 
 **Not vibe-coded.** The grammar, the six examples, the error messages, the single
-compile call and the no-LLM-at-runtime guarantee were written and reviewed by hand in the
-spec first. Kiro implements them; the hooks and tests hold it to the spec.
+compile call and the no-LLM-at-runtime guarantee were fixed in the spec before any
+implementation existed. The implementation follows them; the hooks and tests hold it to
+the spec.
 
 ## License
 
