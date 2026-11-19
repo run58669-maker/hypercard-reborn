@@ -309,6 +309,7 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - [ ] 16.2 Keyboard end-to-end
     - Files: `e2e/keyboard.spec.ts`, `docs/traceability.md`.
-    - Load the app; press ArrowRight five times and see `Card 6 of 6`; press it once more and still see `Card 6 of 6`; focus a field on that card, press ArrowLeft, still `Card 6 of 6`; click Flip, press Escape, and the card's `data-face` is `front`. Record requests after `load` as `e2e/isolation.spec.ts` does: zero.
-    - Done when: the spec passes and its name is in the Playwright column of rows 5.1, 5.3 and 5.5.
-    - _Requirements: 5.1, 5.3, 5.5, 4.3_
+    - Load the app; press ArrowRight five times and see `Card 6 of 6`; press it once more and still see `Card 6 of 6`; focus a field on that card, press ArrowLeft, still `Card 6 of 6`. Type `4` in `field-answer` and click `button-check`: while `answer-dialog` is showing, press ArrowLeft and still see `Card 6 of 6`; close it with `answer-ok` (the quiz script goes to card 2), press ArrowLeft once and see `Card 1 of 6`. Click Flip, press Escape, and the card's `data-face` is `front`. Record requests after `load` as `e2e/isolation.spec.ts` does: zero.
+    - If Playwright's own Chromium is not installed on the machine, run the spec with `PW_CHANNEL=chrome` (see `testing.md`).
+    - Done when: the spec passes and its name is in the Playwright column of rows 5.1 to 5.5.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 4.3_
