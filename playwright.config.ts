@@ -6,6 +6,12 @@ import { defineConfig, devices } from '@playwright/test'
 // always see the current source.
 const PORT = 4173
 
+// PW_CHANNEL=chrome runs the specs in the installed Chrome where Playwright's own
+// Chromium has not been downloaded (`npx playwright install chromium`). CI leaves it unset.
+// This file runs in Node, but the project has no @types/node, so declare the one global read.
+declare const process: { readonly env: Readonly<Record<string, string | undefined>> }
+const channel = process.env['PW_CHANNEL']
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -16,7 +22,12 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], ...(channel === undefined || channel === '' ? {} : { channel }) },
+    },
+  ],
   webServer: {
     command: `npm run build && npm run preview -- --port ${PORT} --strictPort`,
     port: PORT,
