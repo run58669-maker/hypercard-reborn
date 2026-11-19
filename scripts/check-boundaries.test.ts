@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const projectRoot = resolve(fileURLToPath(new URL('.', import.meta.url)), '..')
+const BOUNDARY_RULE = '@typescript-eslint/no-restricted-imports'
 
 async function lintTemporaryFile(directory: string, source: string): Promise<ESLint.LintResult> {
   // A unique sub-directory so parallel test runs cannot collide.
@@ -18,9 +19,27 @@ async function lintTemporaryFile(directory: string, source: string): Promise<ESL
   const file = join(tempDir, 'violation.ts')
   try {
     writeFileSync(file, source)
-    const eslint = new ESLint({ cwd: projectRoot })
+    // The boundary rule is purely syntactic, so this lint runs without the
+    // type-aware program and with every other rule filtered out. A typed
+    // program that was built before this file existed does not contain it, and
+    // the parser then reports a fatal "file not in project" error instead of
+    // running any rule, which would read as "no violation".
+    const eslint = new ESLint({
+      cwd: projectRoot,
+      ruleFilter: ({ ruleId }) => ruleId === BOUNDARY_RULE,
+      overrideConfig: [
+        {
+          files: ['src/**/*.ts'],
+          languageOptions: { parserOptions: { project: null, projectService: false } },
+        },
+      ],
+    })
     const [result] = await eslint.lintFiles([file])
     if (result === undefined) throw new Error('ESLint returned no result')
+    const fatal = result.messages.filter((m) => m.fatal === true)
+    if (fatal.length > 0) {
+      throw new Error(`ESLint could not parse the fixture: ${fatal.map((m) => m.message).join('; ')}`)
+    }
     return result
   } finally {
     rmSync(tempDir, { recursive: true, force: true })
@@ -29,7 +48,7 @@ async function lintTemporaryFile(directory: string, source: string): Promise<ESL
 
 function restrictedImportMessages(result: ESLint.LintResult): string[] {
   return result.messages
-    .filter((m) => m.ruleId === '@typescript-eslint/no-restricted-imports')
+    .filter((m) => m.ruleId === BOUNDARY_RULE)
     .map((m) => m.message)
 }
 
