@@ -54,3 +54,17 @@ Scope: the flip action only. A card holds a natural-language description and the
 1. WHEN the app is loaded for the first time in a browser, THE system SHALL seed the six bundled example cards and select the offline compile provider, with no key required.
 2. WHILE the offline provider is selected, WHEN the author saves one of the six bundled descriptions, THE system SHALL compile it to its bundled script without any network request.
 3. WHILE any card is running or being flipped, THE system SHALL make no network request of any kind.
+
+## Requirement 5: Keyboard access to the stack and the flip
+
+**User story:** As a viewer, I want to move between cards and get back to the front of a card from the keyboard, so that I can walk the stack without reaching for the mouse.
+
+Added after the first build (2026-11-19). Tasks 16.x implement it.
+
+### Acceptance criteria
+
+1. WHEN the user presses the Right Arrow key, THE system SHALL show the next card exactly as the Next button does, and SHALL do nothing on the last card.
+2. WHEN the user presses the Left Arrow key, THE system SHALL show the previous card exactly as the Previous button does, and SHALL do nothing on the first card.
+3. WHILE focus is in an editable element (a field, the description, the script draft, the API key), THE system SHALL NOT change cards on an arrow key, so the key moves the text cursor as usual.
+4. WHILE the card's back face, the settings panel or an answer dialog is showing, or while Alt, Ctrl, Meta or Shift is held, THE system SHALL NOT change cards on an arrow key.
+5. WHEN the user presses Escape while the card's back face is showing and neither the settings panel nor an answer dialog is open, THE system SHALL return to the front face as the flip action does, without re-running the card.

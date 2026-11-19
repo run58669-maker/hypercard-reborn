@@ -12,6 +12,10 @@ any edit to `docs/grammar.md`, `.kiro/specs/flip-card/examples/`, `src/examples/
 runs `npm test` first through the pre-commit-tests hook. The app is demoable offline
 after task 12 and complete after task 14.
 
+Tasks 15 and 16 came after the first build. Task 15 records two changes that were made
+outside the Kiro spec view, so this file stays the one list of what was built; task 16
+adds keyboard access (requirement 5) and is executed from the spec view like 1.1 and 1.2.
+
 - [x] 1. Scaffold
   - [x] 1.1 Vite, TypeScript, Vitest and fast-check
     - Files: `package.json`, `package-lock.json`, `tsconfig.json`, `vite.config.ts`, `vitest.config.ts`, `index.html`, `src/main.ts`.
@@ -284,3 +288,27 @@ after task 12 and complete after task 14.
     - The exact clicks for a three-minute video, with what to say at each step and which spec section it demonstrates (compile once, flip, edit-and-rerun, parse error kept safe, no network).
     - Done when: the checklist has been run once against `npm run preview` without deviation.
     - _Requirements: 2.1, 3.2_
+
+- [x] 15. Phone width and first screen (made outside Kiro, recorded here)
+  - [x] 15.1 Back face inside the card at phone width; inline icon (PR #3)
+    - Files: `src/styles.css`, `index.html`, `e2e/flip.spec.ts`.
+    - Back-face grid tracks are `minmax(0, 1fr)`, so unwrapped script lines can no longer push Save and the editors past the card edge at 390 px. `index.html` carries a data-URI icon, so the single-file build makes no `/favicon.ico` request.
+    - Done when: a 390 px Playwright test checks that `save-description`, `description-input`, `commit-script`, `script-editor` and `stored-script` end inside the card and that the page does not scroll sideways; it fails on the old styles (383 px against a 374 px edge).
+    - _Requirements: 2.1, 4.3_
+  - [x] 15.2 First screen says what this is; one-bit look (PR #4)
+    - Files: `src/ui/app.ts`, `src/ui/cardView.ts`, `src/styles.css`.
+    - `app-intro` and `flip-hint` copy and the compact-Mac styling from `design.md` §7.1. CSS only: no images, no web fonts.
+    - Done when: the unit and e2e suites pass unchanged (615 and 11 tests at the time). No new test: the change is copy and CSS.
+    - _Requirements: 2.1, 4.1_
+
+- [ ] 16. Keyboard access
+  - [ ] 16.1 Arrow keys and Escape in the app shell
+    - Files: `src/ui/app.ts`, `src/ui/app.test.ts` (new, jsdom), `docs/traceability.md`.
+    - The `keydown` listener from `design.md` §7.1 *Keyboard*, with exactly the guards listed there. Reuse `go(n ± 1)` and `CardView.flip()`; no new `data-testid`.
+    - Done when: `src/ui/app.test.ts` covers ArrowRight from card 1 to `Card 2 of 6`; ArrowLeft on card 1 and ArrowRight on card 6 staying put; no card change for an arrow pressed in a field's `textarea`, with Shift held, on the back face, and with the settings panel open; Escape from the back face with focus in `script-editor` returning to `front` with the draft unchanged; Escape on the front face doing nothing. `docs/traceability.md` has a Requirement 5 table with rows 5.1 to 5.5. `npm run lint`, `npm run typecheck` and `npm test` pass.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+  - [ ] 16.2 Keyboard end-to-end
+    - Files: `e2e/keyboard.spec.ts`, `docs/traceability.md`.
+    - Load the app; press ArrowRight five times and see `Card 6 of 6`; press it once more and still see `Card 6 of 6`; focus a field on that card, press ArrowLeft, still `Card 6 of 6`; click Flip, press Escape, and the card's `data-face` is `front`. Record requests after `load` as `e2e/isolation.spec.ts` does: zero.
+    - Done when: the spec passes and its name is in the Playwright column of rows 5.1, 5.3 and 5.5.
+    - _Requirements: 5.1, 5.3, 5.5, 4.3_
