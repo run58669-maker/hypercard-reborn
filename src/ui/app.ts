@@ -43,8 +43,14 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     el('div', { class: 'card-heading' }, [name, position]),
     el('nav', { class: 'card-nav', ariaLabel: 'Cards' }, [prev, next, settingsOpen]),
   ])
+  // One sentence for a first-time visitor: what this is and where to click.
+  const intro = el('p', {
+    class: 'app-intro',
+    testid: 'app-intro',
+    text: 'HyperCard, 1987: every card carries its own script. Press Flip to read the script on the back of this card, or describe what the card should do in plain English and it rewrites itself.',
+  })
   const stage = el('main', { class: 'stage' })
-  const element = el('div', { class: 'app' }, [header, stage, settings.element])
+  const element = el('div', { class: 'app' }, [header, intro, stage, settings.element])
   settingsOpen.addEventListener('click', () => {
     settings.open()
   })
