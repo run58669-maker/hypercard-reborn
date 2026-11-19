@@ -59,7 +59,7 @@ Scope: the flip action only. A card holds a natural-language description and the
 
 **User story:** As a viewer, I want to move between cards and get back to the front of a card from the keyboard, so that I can walk the stack without reaching for the mouse.
 
-Added after the first build (2026-11-19). Tasks 16.x implement it.
+Added after the first build (2026-11-19). Tasks 16.x implement it. Criteria 6 and 7 came from the review of tasks 16.1 and 16.2 the same day.
 
 ### Acceptance criteria
 
@@ -68,3 +68,5 @@ Added after the first build (2026-11-19). Tasks 16.x implement it.
 3. WHILE focus is in an editable element (a field, the description, the script draft, the API key), THE system SHALL NOT change cards on an arrow key, so the key moves the text cursor as usual.
 4. WHILE the card's back face, the settings panel or an answer dialog is showing, or while Alt, Ctrl, Meta or Shift is held, THE system SHALL NOT change cards on an arrow key.
 5. WHEN the user presses Escape while the card's back face is showing and neither the settings panel nor an answer dialog is open, THE system SHALL return to the front face as the flip action does, without re-running the card.
+6. WHEN the card turns to its front face while focus is inside the back face, THE system SHALL move focus to the Flip button, so keys typed next do not edit the hidden script draft.
+7. WHILE an input method is composing text, THE system SHALL NOT act on an arrow key or Escape, so the key reaches the input method as usual.

@@ -301,7 +301,7 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - Done when: the unit and e2e suites pass unchanged (615 and 11 tests at the time). No new test: the change is copy and CSS.
     - _Requirements: 2.1, 4.1_
 
-- [x] 16. Keyboard access
+- [ ] 16. Keyboard access
   - [x] 16.1 Arrow keys and Escape in the app shell
     - Files: `src/ui/app.ts`, `src/ui/app.test.ts` (new, jsdom), `docs/traceability.md`.
     - The `keydown` listener from `design.md` §7.1 *Keyboard*, with exactly the guards listed there. Reuse `go(n ± 1)` and `CardView.flip()`; no new `data-testid`.
@@ -313,3 +313,15 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - If Playwright's own Chromium is not installed on the machine, run the spec with `PW_CHANNEL=chrome` (see `testing.md`).
     - Done when: the spec passes and its name is in the Playwright column of rows 5.1 to 5.5.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 4.3_
+  - [ ] 16.3 Keyboard unit tests that can fail
+    - Files: `src/ui/app.test.ts`, `docs/traceability.md`. No change to `src/`.
+    - Review of 16.1 found that `fire()` builds events that cannot be cancelled, so `preventDefault()` has no effect and the `defaultPrevented` guard is never exercised; that each test's app keeps its `document` listener after the test ends; and that only Shift and a `textarea` are tried, with no unit test for the answer-dialog guard or for any guard on Escape.
+    - Make every synthetic key event `cancelable: true` and dispatch it from `document.body` or the focused element, never from `document`. In `afterEach`, remove every listener the test's `createApp` added to `document` and `window` (record them by spying on `addEventListener`); `App` gets no `dispose()`.
+    - Add tests: an event already `defaultPrevented` by a listener on `document.body` changes nothing; a handled arrow and a handled Escape leave the event `defaultPrevented`; Alt, Ctrl and Meta each stop an arrow, as Shift does (one `it.each`); an arrow dispatched from an `input`, from a `select` and from an element inside `[contenteditable]` changes nothing; with an element carrying `data-testid="answer-dialog"` in the document, ArrowRight changes nothing and Escape leaves the back face showing; Escape with the settings panel open, and Escape with Ctrl held, leave the back face showing. The settings test asserts that `settings-panel` is `open` after clicking `settings-open` and stops setting the attribute itself. The Escape test focuses `script-editor`, changes the draft with an `input` event, dispatches Escape from the editor, and checks with a spy that the card is not run again.
+    - Done when: each of these edits to `src/ui/app.ts`, made one at a time and then reverted, fails at least one test in `app.test.ts`: delete the `defaultPrevented` guard; reduce the modifier guard to `event.shiftKey`; delete the answer-dialog guard; delete `|| target instanceof HTMLInputElement || target instanceof HTMLSelectElement`; delete the `[contenteditable]` line; move the settings guard into the arrow branch; delete either `preventDefault()` call; replace `view.flip()` with `go(number)`. The new test names are in the unit column of rows 5.1 to 5.5. `npm run lint`, `npm run typecheck` and `npm test` pass.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+  - [ ] 16.4 Focus after Escape, the end cards, input methods
+    - Files: `src/ui/app.ts`, `src/ui/cardView.ts`, `src/ui/app.test.ts`, `src/ui/cardView.test.ts`, `e2e/keyboard.spec.ts`, `docs/traceability.md`.
+    - The three changes in `design.md` §7.1 *Keyboard*: an arrow calls `preventDefault()` only when the neighbouring card exists; the listener ignores a key while `event.isComposing` is true or `event.keyCode` is 229; `CardView.flip()` moves focus to the Flip button when it turns the card to the front while focus is inside the back face.
+    - Done when: unit tests show that ArrowLeft on card 1 and ArrowRight on card 6 leave the event not `defaultPrevented`; that Escape with `isComposing: true`, and Escape with `keyCode: 229`, leave the back face showing; that Escape from `script-editor` leaves focus on `flip` with the draft kept; and, in `cardView.test.ts`, that clicking Flip on the back face with focus in `script-editor` moves focus to `flip`. In `e2e/keyboard.spec.ts` the Escape test clicks `script-editor`, types, presses Escape, sees `flip` focused, types `xy`, flips back and finds a draft that does not end with `xy` (before this task it does). The comment "Unfocus any element so the guard is purely the dialog presence" is corrected, since nothing is unfocused there. `docs/traceability.md` has rows 5.6 and 5.7. `npm run lint`, `npm run typecheck`, `npm test` and the e2e suite pass.
+    - _Requirements: 5.1, 5.2, 5.5, 5.6, 5.7_

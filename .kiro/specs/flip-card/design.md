@@ -527,12 +527,21 @@ offline file (task 15.2).
   focus, including the description and the script draft (the draft is kept, as with
   the Flip button). On the front face it does nothing.
 - The listener does nothing when the event is already `defaultPrevented` (an answer
-  dialog handles its own Enter and Escape), when Alt, Ctrl, Meta or Shift is held,
-  when the settings `<dialog>` is `open`, or when an `answer-dialog` is in the
-  document.
+  dialog handles its own Enter and Escape), when an input method is composing
+  (`isComposing`, or `keyCode` 229, the value browsers give a key that went to the
+  input method; requirement 5.7), when Alt, Ctrl, Meta or Shift is held, when the
+  settings `<dialog>` is `open`, or when an `answer-dialog` is in the document.
 - For the arrows only, it also does nothing when the event target is a `textarea`,
   `input` or `select` or is inside `[contenteditable]`, or when the face is `back`.
-- It calls `preventDefault()` only when it acted. No new `data-testid`.
+- It calls `preventDefault()` only when it acted: for an arrow, only when the
+  neighbouring card exists. No new `data-testid`.
+- When `CardView.flip()` turns the card to the front while focus is inside the back
+  face, it moves focus to the Flip button (requirement 5.6), whichever of Escape and
+  the Flip button turned it. Without this the script draft keeps focus under
+  `aria-hidden` until the flip transition hides it, and keys typed in that time
+  edit the hidden draft.
+- The app shell lives as long as the page and has no teardown. Its tests remove the
+  listeners each test's app added to `document` and `window`.
 
 ### 7.2 The two faces
 
