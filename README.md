@@ -152,21 +152,23 @@ Stated plainly, so nobody has to guess from the commit log:
 | The spec, steering files and hooks in `.kiro/`, and `docs/grammar.md` | Claude Code sessions, reviewed by the author | commits `8431ca4`, `7c95a1a`, `266cae7`, `904949a` |
 | Tasks 1.1 and 1.2 (Vite, TypeScript, Vitest, fast-check scaffold; ESLint flat config) | **Kiro**, executing the spec tasks from the Kiro spec view in autopilot | commit `1435f54`; `.kiro/specs/flip-card/tasks.meta.json` holds the execution ids Kiro wrote for both tasks |
 | Tasks 1.3 to 14.3 (parser, interpreter, store, compile pipeline, runtime, UI, tests) | Claude Code, following the same `tasks.md` in order, one sub-task per commit | the 45 commits authored `Claude` and titled `flip-card <task number>` |
-| CI fixes on Windows and for the boundary check, the phone-width fix, the first-screen introduction and the 1987 styling | Claude Code, outside the spec's task list | pull requests #2, #3 and #4 |
+| CI fixes on Windows and for the boundary check, the phone-width fix, the first-screen introduction and the 1987 styling | Claude Code, outside the spec's task list; recorded afterwards as tasks 15.1 and 15.2 | pull requests #2, #3 and #4 |
+| Requirement 5 (keyboard) and tasks 16.1 to 16.4 in the spec | Claude Code | commits `e9529ab`, `c087baa`, `56b2ddb` |
+| Tasks 16.1 to 16.4 (arrow keys and Escape, the keyboard end-to-end spec, unit tests that can fail, focus after Escape, end cards, input methods) | **Kiro**, executing each task from the Kiro spec view; Claude Code checked each one and ticked 16.4 after the Kiro session stopped before marking it done | commits `734866d`, `00a669c`, `c6db824`, `0385195`; pull request #6 |
 
-So Kiro executed 2 of the 47 sub-tasks. The spec, steering and hooks are real Kiro
-artefacts and Kiro ran against them, but most of the implementation was not typed by
-Kiro's agent. The three hooks are configured in `.kiro/hooks/`, and the pre-commit gate
+So Kiro executed 6 of the 53 sub-tasks: 1.1, 1.2 and 16.1 to 16.4. The spec, steering
+and hooks are real Kiro artefacts and Kiro ran against them, but most of the
+implementation was not typed by Kiro's agent. The three hooks are configured in `.kiro/hooks/`, and the pre-commit gate
 has a plain-git twin in `.githooks/` that ran on every commit; whether the two `askAgent`
-hooks fired inside Kiro during tasks 1.1 and 1.2 was not recorded.
+hooks fired inside Kiro during those tasks was not recorded.
 
 **Spec** (`.kiro/specs/flip-card/`)
 
 | File | What it holds |
 |---|---|
-| `requirements.md` | 4 requirements, 14 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
+| `requirements.md` | 5 requirements, 21 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
 | `design.md` | Module boundaries, the one invariant (`Card.script` is the only executable artefact), every public type, every parse and runtime error message, the six seeded card layouts, the `data-testid` contract, assumptions taken where the requirements leave room. |
-| `tasks.md` | 14 groups, 47 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
+| `tasks.md` | 16 groups, 53 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
 | `examples/<id>.hc/` | The six bundled cards as `description.txt` + `script.hc`, byte-identical to `docs/grammar.md` §8. The app imports these files directly. |
 
 `docs/grammar.md` is the language definition everything derives from: the parser

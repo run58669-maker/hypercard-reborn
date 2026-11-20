@@ -15,7 +15,7 @@ phases and never skipped ahead:
 
 1. **`requirements.md`** came first, in EARS form (WHEN / WHILE / IF ... THE system SHALL).
    Four requirements, fourteen numbered acceptance criteria, in the first build; a fifth
-   (keyboard access, five criteria) was added afterwards and went through the same
+   (keyboard access, five criteria, then two more from review) was added afterwards and went through the same
    requirements, design, tasks order. Every later artefact points back at these numbers
    and nothing else counts as "done".
 2. **`design.md`** was written against those criteria before any code. It fixes the module
