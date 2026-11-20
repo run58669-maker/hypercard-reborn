@@ -34,3 +34,6 @@ fileMatchPattern: ['**/*.test.ts', 'e2e/**']
   in the test runner, so the test proves what the spec says ("byte-identical").
 - The no-network test (task 13.1) counts requests with `page.on('request')` after
   `load`; any request at all is a failure, there is no allow-list.
+- The specs use Playwright's own Chromium (`npx playwright install chromium`). Where it is
+  not installed, set `PW_CHANNEL=chrome` (PowerShell: `$env:PW_CHANNEL='chrome'`) to run
+  them in the installed Chrome; CI leaves it unset.

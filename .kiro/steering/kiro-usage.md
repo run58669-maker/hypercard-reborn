@@ -14,8 +14,10 @@ The whole product is one spec, `.kiro/specs/flip-card/`, built in the standard t
 phases and never skipped ahead:
 
 1. **`requirements.md`** came first, in EARS form (WHEN / WHILE / IF ... THE system SHALL).
-   Four requirements, fourteen numbered acceptance criteria. Every later artefact points
-   back at these numbers and nothing else counts as "done".
+   Four requirements, fourteen numbered acceptance criteria, in the first build; a fifth
+   (keyboard access, five criteria) was added afterwards and went through the same
+   requirements, design, tasks order. Every later artefact points back at these numbers
+   and nothing else counts as "done".
 2. **`design.md`** was written against those criteria before any code. It fixes the module
    boundaries, the one invariant that makes the product honest (`Card.script` is the only
    executable artefact), every public type, every error message, the seeded card layouts,

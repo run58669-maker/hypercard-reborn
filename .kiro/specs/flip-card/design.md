@@ -512,6 +512,37 @@ Previous / Next buttons and a Settings button. Whenever a card becomes the visib
 from `objects`, send `openCard`). Leaving a card tears down its host; flip state is
 per card and a card is always shown front first. Card 1 is shown on load.
 
+Under the header, one sentence (`app-intro`) says what the app is and where to click,
+and the front face shows a hint beside Flip (`flip-hint`). Both are copy only; the
+one-bit compact-Mac look (dither desktop, striped title bar, square windows with a hard
+one-pixel shadow) is CSS only, with no images or web fonts, so the build stays one
+offline file (task 15.2).
+
+**Keyboard (requirement 5).** The app shell registers one `keydown` listener on
+`document`:
+
+- `ArrowRight` / `ArrowLeft` go through the same `go(n ± 1)` path as Next / Previous,
+  so the ends behave like the disabled buttons (nothing happens).
+- `Escape` calls the visible card's `flip()` when its `face()` is `back`, from any
+  focus, including the description and the script draft (the draft is kept, as with
+  the Flip button). On the front face it does nothing.
+- The listener does nothing when the event is already `defaultPrevented` (an answer
+  dialog handles its own Enter and Escape), when an input method is composing
+  (`isComposing`, or `keyCode` 229, the value browsers give a key that went to the
+  input method; requirement 5.7), when Alt, Ctrl, Meta or Shift is held, when the
+  settings `<dialog>` is `open`, or when an `answer-dialog` is in the document.
+- For the arrows only, it also does nothing when the event target is a `textarea`,
+  `input` or `select` or is inside `[contenteditable]`, or when the face is `back`.
+- It calls `preventDefault()` only when it acted: for an arrow, only when the
+  neighbouring card exists. No new `data-testid`.
+- When `CardView.flip()` turns the card to the front while focus is inside the back
+  face, it moves focus to the Flip button (requirement 5.6), whichever of Escape and
+  the Flip button turned it. Without this the script draft keeps focus under
+  `aria-hidden` until the flip transition hides it, and keys typed in that time
+  edit the hidden draft.
+- The app shell lives as long as the page and has no teardown. Its tests remove the
+  listeners each test's app added to `document` and `window`.
+
 ### 7.2 The two faces
 
 Each card is one DOM element with two faces and a `data-face="front" | "back"`
@@ -557,6 +588,7 @@ change here first.
 | Card root, front face, back face | `card`, `card-front`, `card-back` |
 | Flip control (both faces) | `flip` |
 | Header | `card-name`, `card-position`, `card-prev`, `card-next`, `settings-open` |
+| First-visit copy (§7.1) | `app-intro`, `flip-hint` |
 | Front-face objects | `field-<name>`, `button-<name>` (name lower-cased, spaces to `-`) |
 | Status line, message box | `status-line`, `message-box` |
 | Answer dialog and its OK | `answer-dialog`, `answer-ok` |

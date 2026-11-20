@@ -93,6 +93,10 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
         setFace('back')
       } else {
         setFace('front')
+        // Requirement 5.6: move focus to the Flip button when the back face had focus.
+        if (back.element.contains(document.activeElement)) {
+          flip.focus()
+        }
       }
     },
     dispose() {
