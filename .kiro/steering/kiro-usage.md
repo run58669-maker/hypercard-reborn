@@ -26,9 +26,16 @@ phases and never skipped ahead:
    assumption down instead of guessing silently.
 3. **`tasks.md`** breaks the design into tasks sized for one Kiro execution each. Each
    task names the files it touches, a *Done when* line that a reviewer can check without
-   trusting the agent's summary, and the `_Requirements_` it serves. Tasks are executed
-   from the Kiro spec view one at a time, in order, with the hooks below running
-   automatically as files change.
+   trusting the agent's summary, and the `_Requirements_` it serves. The planned workflow
+   is to execute tasks from the Kiro spec view one at a time, in order, with the hooks
+   below running as files change.
+
+**What actually ran in Kiro.** Six of the 53 sub-tasks were executed from the Kiro spec
+view: 1.1, 1.2 and 16.1 to 16.4. Their execution ids are in
+`.kiro/specs/flip-card/tasks.meta.json`. The other sub-tasks (1.3 to 14.3) were written
+by Claude Code against the same `tasks.md`, one sub-task per commit; the README's "Who
+built what" table has the commit references. We have no record of whether the two
+`askAgent` hooks fired during the Kiro executions.
 
 `docs/grammar.md` is the fourth spec document in all but location: it is the language
 definition the parser, the compile prompt and the examples all derive from, and the
