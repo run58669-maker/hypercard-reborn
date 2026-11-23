@@ -502,6 +502,72 @@ each, `examples/<id>.hc/description.txt` equals `<description>` byte-for-byte an
 script parses; and every reserved word in the `docs/grammar.md` §1 list is a key of the
 lexer's keyword table and vice versa.
 
+### 6.8 Object check (requirement 6)
+
+A card's objects come from its layout (§3) and never change when a script is compiled.
+A script that parses can still name an object the card lacks; before this section the
+author found out on the front face, as a runtime error in `openCard`. The service now
+refuses such a script, the same way it refuses one that does not parse.
+
+```ts
+// src/compile/objectCheck.ts  (pure; imports only parser types)
+export interface ObjectName { readonly kind: 'field' | 'button'; readonly name: string }
+
+/** Every ObjectRef in the program, in source order, duplicates removed (same kind, same name ignoring case). */
+export function referencedObjects(program: Program): ObjectName[];
+
+/** The referenced objects that `objects` does not contain. Kind must be equal; names are compared with toLowerCase(), as DomHost.find does. */
+export function missingObjects(program: Program, objects: readonly ObjectName[]): ObjectName[];
+```
+
+`referencedObjects` walks every handler: statements nested in `if`/`else` and in all four
+`repeat` forms, and every expression position (`put`, `set`, `get`, `answer`, `go`,
+`show`, `hide`, conditions, `repeat` bounds, operands of unary and binary operators,
+built-in arguments). Only `ObjectRef` nodes count. A string compared with `the target`
+(`if the target is "Increment"`) is a string, not a reference, and is not checked: on a
+card without that button the branch never runs, which is not an error. The six bundled
+scripts refer to fields only.
+
+Changes to §6.1:
+
+```ts
+export interface CompileContext { readonly objects: readonly ObjectName[] }
+
+export interface CompileProvider {
+  readonly id: 'anthropic' | 'canned';
+  compile(description: string, context: CompileContext, signal: AbortSignal): Promise<string>;
+}
+
+export type CompileError =
+  | ...                                   // as before
+  | { kind: 'unknown-object'; message: string; missing: ObjectName[]; candidate: string };
+
+export function compile(description: string, provider: CompileProvider, context: CompileContext, signal?: AbortSignal): Promise<CompileResult>;
+```
+
+Order inside `compile`: provider call (still exactly one), parse, then `missingObjects`.
+A parse failure is reported as `invalid-script` and the object check is skipped. The
+canned provider ignores `context`. The Anthropic provider appends one line to the user
+message, after the description, and leaves the system prompt (and its snapshot) alone:
+
+```
+This card has exactly these objects: field "greeting". Do not refer to any other field or button.
+```
+
+or, for a card with no objects, `This card has no fields and no buttons.`
+
+The description panel receives the card's objects from the `Card` it renders, passes
+them on Save, and shows `unknown-object` in the compile-error block with the rejected
+candidate, as it does for `invalid-script`. Chips: for each bundled example the panel
+parses the example's script once (module-level cache) and calls `missingObjects` with
+the rendered card's objects. No missing object: the chip works as before. Otherwise the
+chip is `disabled`, and its `title` is `Needs objects this card does not have. Open the
+<Title> card to use it.` No new `data-testid`.
+
+A hand edit (requirement 3) is not checked: the author may write any script that
+parses, and a reference to a missing object is reported on the status line when the
+statement runs, as before.
+
 ## 7. App shell and flip UI
 
 ### 7.1 App shell and navigation
@@ -554,7 +620,7 @@ Users who prefer reduced motion get an instant swap (`prefers-reduced-motion`).
   absolutely positioned from `rect` on the 512 × 342 canvas, scaled down to fit narrow
   viewports; a status line for runtime errors; the message box; the Flip control.
 - **Back face**: two columns. Left: the description (editable `<textarea>`) with Save,
-  the provider chips, the compile-error block, the stale-description notice, the script
+  the provider chips (only those that fit this card are enabled, §6.8), the compile-error block, the stale-description notice, the script
   origin line ("compiled from this description with Anthropic claude-haiku-5-5 at …" /
   "compiled offline at …" / "edited by hand at …" / "bundled example"). Right: the script
   editor labelled *Draft*, Commit, the parse-error panel, and the read-only *Stored
@@ -674,6 +740,7 @@ sequenceDiagram
 | Situation | Where it surfaces | What is stored | What runs |
 |---|---|---|---|
 | Compiled output fails to parse (1.4) | Back face, description panel: parse error with line:col, plus the rejected candidate in a read-only block so the author can copy it into the editor and fix it | Description (already saved); previous script untouched | Previous script, uninterrupted |
+| Compiled output parses but names an object the card lacks (6.1) | Back face, description panel: the missing objects and the card's own objects, plus the rejected candidate in the read-only block | Description (already saved); previous script untouched | Previous script, uninterrupted |
 | Provider error (auth, network, rate limit, refusal, truncated, no canned match, api, unknown) | Same panel, one line, with the next step | Description; previous script untouched | Previous script |
 | Edited script fails to parse (3.4) | Back face, next to the editor; offending line highlighted; the draft is kept so the author can keep editing | Nothing | Last valid script, uninterrupted |
 | Runtime error during a handler | Front-face status line (and mirrored on the back face) | Nothing | Handler aborted at the failing statement; next event runs again |
@@ -687,6 +754,7 @@ Compile error messages (shown verbatim):
 | kind | message |
 |---|---|
 | `invalid-script` | `The compiler produced a script that does not parse (line L, column C: <parse message>). The previous script is still running.` |
+| `unknown-object` | `The compiler produced a script for objects this card does not have (<missing, comma-separated, e.g. field "count">). This card has: <objects, or "no fields and no buttons">. The previous script is still running.` |
 | `no-canned-match` | `The offline compiler only knows the six bundled descriptions. Pick one from the list, or add an Anthropic key in Settings.` |
 | `auth` | `Add an Anthropic key in Settings to compile with Anthropic.` (missing) / `Anthropic rejected the key. Check it in Settings.` (401) |
 | `rate-limit` | `Anthropic is rate-limiting this key. Wait a moment and press Save again.` |
