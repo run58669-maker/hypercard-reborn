@@ -140,7 +140,8 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
       try {
         deps.store.saveDescription(deps.cardId, description)
         const compiler = await deps.loadCompiler()
-        const result = await compiler.compile(description, deps.provider(), new AbortController().signal)
+        const objects = deps.store.getCard(deps.cardId)?.objects ?? []
+        const result = await compiler.compile(description, deps.provider(), { objects }, new AbortController().signal)
         if (!result.ok) {
           showError(result.error.message, result.error.kind === 'invalid-script' ? result.error.candidate : null)
           return

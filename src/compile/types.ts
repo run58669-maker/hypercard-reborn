@@ -1,14 +1,21 @@
-// Compile-once pipeline types (design.md §6.1, §6.2).
+// Compile-once pipeline types (design.md §6.1, §6.2, §6.8).
 import type { ParseError } from '../parser'
+import type { ObjectName } from './objectCheck'
 
 export type ProviderId = 'anthropic' | 'canned'
+
+/** What the service knows about the card being compiled for (design.md §6.8). */
+export interface CompileContext {
+  /** The fields and buttons of the card's layout. */
+  readonly objects: readonly ObjectName[]
+}
 
 export interface CompileProvider {
   readonly id: ProviderId
   /** The model id, when the provider has one; reported in CompileResult. */
   readonly model?: string
   /** Returns the raw candidate script. Failure is signalled by throwing. */
-  compile(description: string, signal: AbortSignal): Promise<string>
+  compile(description: string, context: CompileContext, signal: AbortSignal): Promise<string>
 }
 
 export type CompileResult =
@@ -23,6 +30,7 @@ export type CompileResult =
 
 export type CompileErrorKind =
   | 'invalid-script'
+  | 'unknown-object'
   | 'no-canned-match'
   | 'auth'
   | 'rate-limit'
@@ -37,6 +45,12 @@ export type CompileError =
       readonly kind: 'invalid-script'
       readonly message: string
       readonly parseError: ParseError
+      readonly candidate: string
+    }
+  | {
+      readonly kind: 'unknown-object'
+      readonly message: string
+      readonly missing: readonly ObjectName[]
       readonly candidate: string
     }
   | {

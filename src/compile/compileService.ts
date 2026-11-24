@@ -1,16 +1,31 @@
-// The compile service (design.md §6.1, §6.2): exactly one provider call,
-// parse the candidate, return a validated script or a CompileError. It never
-// writes to the store and never lets an exception escape.
+// The compile service (design.md §6.1, §6.2, §6.8): exactly one provider call,
+// parse the candidate, check that it names only objects the card has, return a
+// validated script or a CompileError. It never writes to the store and never
+// lets an exception escape.
 import { parse } from '../parser'
 import { MESSAGES } from './messages'
 import { descriptionHash } from './normalise'
-import { MissingKey, NoCannedMatch, ProviderError, type CompileError, type CompileProvider, type CompileResult } from './types'
+import { missingObjects } from './objectCheck'
+import {
+  MissingKey,
+  NoCannedMatch,
+  ProviderError,
+  type CompileContext,
+  type CompileError,
+  type CompileProvider,
+  type CompileResult,
+} from './types'
 
-export async function compile(description: string, provider: CompileProvider, signal?: AbortSignal): Promise<CompileResult> {
+export async function compile(
+  description: string,
+  provider: CompileProvider,
+  context: CompileContext,
+  signal?: AbortSignal,
+): Promise<CompileResult> {
   let candidate: string
   try {
     // The one and only provider call. No retry loop lives here or anywhere.
-    candidate = await provider.compile(description, signal ?? new AbortController().signal)
+    candidate = await provider.compile(description, context, signal ?? new AbortController().signal)
   } catch (error) {
     return { ok: false, error: classify(error) }
   }
@@ -20,6 +35,15 @@ export async function compile(description: string, provider: CompileProvider, si
     return {
       ok: false,
       error: { kind: 'invalid-script', message: MESSAGES.invalidScript(parsed.error), parseError: parsed.error, candidate },
+    }
+  }
+
+  // Only a script that parses is checked; a parse failure was reported above.
+  const missing = missingObjects(parsed.program, context.objects)
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      error: { kind: 'unknown-object', message: MESSAGES.unknownObject(missing, context.objects), missing, candidate },
     }
   }
 

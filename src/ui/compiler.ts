@@ -3,12 +3,13 @@
 // the Anthropic SDK is not part of the runtime chunk and is not loaded until
 // the author presses Save (or views a card compiled in this browser, whose
 // stale-description notice needs the description hash).
-import type { CompileResult } from '../compile'
+import type { CompileContext, CompileResult } from '../compile'
 import type { StorageLike } from '../store'
 import type { ProviderChoice } from './settings'
 
 export interface Compiler {
-  compile(description: string, provider: ProviderChoice, signal: AbortSignal): Promise<CompileResult>
+  /** `context` carries the objects of the card the description belongs to. */
+  compile(description: string, provider: ProviderChoice, context: CompileContext, signal: AbortSignal): Promise<CompileResult>
   descriptionHash(description: string): Promise<string>
 }
 
@@ -19,8 +20,13 @@ export function lazyCompiler(storage: StorageLike): LoadCompiler {
   let loaded: Promise<Compiler> | null = null
   return () => {
     loaded ??= import('../compile').then((mod) => ({
-      compile: (description, provider, signal) =>
-        mod.compile(description, provider === 'anthropic' ? mod.createAnthropicProvider({ storage }) : mod.createCannedProvider(), signal),
+      compile: (description, provider, context, signal) =>
+        mod.compile(
+          description,
+          provider === 'anthropic' ? mod.createAnthropicProvider({ storage }) : mod.createCannedProvider(),
+          context,
+          signal,
+        ),
       descriptionHash: mod.descriptionHash,
     }))
     return loaded
