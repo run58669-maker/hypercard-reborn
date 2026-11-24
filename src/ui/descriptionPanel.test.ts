@@ -26,7 +26,7 @@ function fakeCompiler(compileImpl: (description: string) => CompileResult) {
   const compiler: Compiler = {
     compile: (description, _provider, context) => spy(description, context.objects),
     descriptionHash: hash,
-    missingObjects: real.missingObjects,
+    missingObjects: (script, objects) => real.missingObjects(script, objects),
   }
   return { compiler, spy }
 }
