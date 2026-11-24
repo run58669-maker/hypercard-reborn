@@ -327,7 +327,8 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - _Requirements: 5.1, 5.2, 5.5, 5.6, 5.7_
 
 - [ ] 17. A compiled script only refers to objects the card has
-  - [ ] 17.1 `referencedObjects` and `missingObjects`
+  - [x] 17.1 `referencedObjects` and `missingObjects`
+    - Written by Claude, not run in Kiro (2026-11-24: 0.8 GB of memory free on the machine, the IDE did not fit). The grammar has no built-in with an argument (`the date`, `the time`, `the target` take none), so the "inside a built-in argument" case below has no test; every other listed position has one.
     - Files: `src/compile/objectCheck.ts` (new), `src/compile/objectCheck.test.ts` (new), `src/compile/index.ts`.
     - The two pure functions from `design.md` §6.8, with the `ObjectName` type. Walk every statement and expression position listed there. No change to the parser, the service or the UI.
     - Done when: unit tests show that each of the six bundled scripts yields exactly the fields of its own example in `src/examples/index.ts` and no button (the bundled scripts reach their buttons through `the target`), so `missingObjects` is empty against its own layout and that the Counter script against the Hello layout yields `field "count"` only once although the script names it several times; that a reference inside `else`, inside each of the four `repeat` forms, inside a built-in argument and on the right of a binary operator is found; that `if the target is "Increment"` alone yields nothing; that `field "Count"` is not missing when the card has `field "count"`, and `button "count"` is missing when the card has only `field "count"`. One fast-check property using `src/parser/arbitraries.ts`: for any generated program, every `ObjectRef` the printer's output contains is returned. `npm run lint`, `npm run typecheck` and `npm test` pass.
