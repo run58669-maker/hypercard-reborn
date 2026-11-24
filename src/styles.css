@@ -394,6 +394,12 @@ input:focus-visible {
   font-size: 0.85rem;
 }
 
+/* A chip whose script names objects this card lacks (design.md 6.8). */
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .compile-status {
   min-height: 1.4em;
   margin: 6px 0 0;

@@ -1,13 +1,14 @@
 // The description panel (design.md §6.1, §7.2, §9): the editable description
 // with Save, one-click chips for the six bundled descriptions when the
-// offline provider is active, the compile-error block (with the rejected
-// candidate for invalid-script), the stale-description notice and the
+// offline provider is active (only those whose script fits this card's
+// objects are enabled, §6.8), the compile-error block (with the rejected
+// candidate for invalid-script and unknown-object), the stale-description notice and the
 // script-origin line. Save is the only action that invokes the compile
 // service, exactly once per press; it is disabled while a compile is in
 // flight so a double click cannot start a second call.
 import { EXAMPLES } from '../examples'
 import type { Card, CardStore, ScriptOrigin } from '../store'
-import type { LoadCompiler } from './compiler'
+import type { Compiler, LoadCompiler } from './compiler'
 import { el, setChildren } from './dom'
 import type { ProviderChoice } from './settings'
 
@@ -29,6 +30,11 @@ export interface DescriptionPanel {
 }
 
 export const STALE_NOTICE = 'The stored script was compiled from an older description. Press Save to compile this one.'
+
+/** The title of a chip whose script names objects the rendered card lacks (design.md §6.8). */
+export function unfitChipTitle(exampleTitle: string): string {
+  return `Needs objects this card does not have. Open the ${exampleTitle} card to use it.`
+}
 
 /** The script-origin line texts from design.md §7.2. */
 export function originText(origin: ScriptOrigin): string {
@@ -72,22 +78,54 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
   let inFlight = false
   let renderedCard: Card | null = null
 
+  // Chips are built once and kept; fitChips() only flips `disabled` and
+  // `title`. A chip starts disabled, so it never fills the description while
+  // its fit for the rendered card is unknown.
+  let chipButtons: { readonly example: (typeof EXAMPLES)[number]; readonly button: HTMLButtonElement }[] = []
+  let compilerForChips: Compiler | null = null
+
+  /** Enables exactly the chips whose script has no missing object on the rendered card. */
+  function fitChips(compiler: Compiler): void {
+    const objects = renderedCard?.objects ?? []
+    for (const { example, button } of chipButtons) {
+      const fits = compiler.missingObjects(example.script, objects).length === 0
+      button.disabled = !fits
+      button.title = fits ? example.description : unfitChipTitle(example.title)
+    }
+  }
+
   function renderChips(): void {
     if (deps.provider() !== 'canned') {
+      chipButtons = []
       setChildren(chips, [])
       return
     }
-    setChildren(chips, [
-      el('span', { class: 'chips-label', text: 'Bundled descriptions:' }),
-      ...EXAMPLES.map((example) => {
-        const chip = el('button', { class: 'chip', testid: `chip-${example.id}`, text: example.title, title: example.description })
-        chip.addEventListener('click', () => {
+    if (chipButtons.length === 0) {
+      chipButtons = EXAMPLES.map((example) => {
+        const button = el('button', { class: 'chip', testid: `chip-${example.id}`, text: example.title, title: example.description })
+        button.disabled = true
+        button.addEventListener('click', () => {
+          if (button.disabled) return
           input.value = example.description
           input.focus()
         })
-        return chip
-      }),
-    ])
+        return { example, button }
+      })
+      setChildren(chips, [el('span', { class: 'chips-label', text: 'Bundled descriptions:' }), ...chipButtons.map((chip) => chip.button)])
+    }
+    if (compilerForChips !== null) {
+      fitChips(compilerForChips)
+      return
+    }
+    void deps.loadCompiler().then(
+      (compiler) => {
+        compilerForChips = compiler
+        fitChips(compiler)
+      },
+      () => {
+        // Without the compile module Save cannot work either and says so; the chips stay disabled.
+      },
+    )
   }
 
   function showError(message: string, candidate: string | null): void {
@@ -143,7 +181,8 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
         const objects = deps.store.getCard(deps.cardId)?.objects ?? []
         const result = await compiler.compile(description, deps.provider(), { objects }, new AbortController().signal)
         if (!result.ok) {
-          showError(result.error.message, result.error.kind === 'invalid-script' ? result.error.candidate : null)
+          const rejected = result.error.kind === 'invalid-script' || result.error.kind === 'unknown-object' ? result.error.candidate : null
+          showError(result.error.message, rejected)
           return
         }
         const origin: ScriptOrigin =
