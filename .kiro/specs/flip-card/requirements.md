@@ -70,3 +70,16 @@ Added after the first build (2026-11-19). Tasks 16.x implement it. Criteria 6 an
 5. WHEN the user presses Escape while the card's back face is showing and neither the settings panel nor an answer dialog is open, THE system SHALL return to the front face as the flip action does, without re-running the card.
 6. WHEN the card turns to its front face while focus is inside the back face, THE system SHALL move focus to the Flip button, so keys typed next do not edit the hidden script draft.
 7. WHILE an input method is composing text, THE system SHALL NOT act on an arrow key or Escape, so the key reaches the input method as usual.
+
+## Requirement 6: A compiled script only refers to objects the card has
+
+**User story:** As a card author, I want a description that talks about fields or buttons this card lacks to be refused when I save it, so that the card never ends up storing a script that fails the moment it runs.
+
+Added 2026-11-24 after a review found that saving the Counter description on the Hello card stored a script whose `openCard` fails with `field "count" does not exist`. A card's fields and buttons are fixed by its layout; compiling does not add or remove them. Tasks 17.x implement it.
+
+### Acceptance criteria
+
+1. IF the compiled output parses but refers, as `field "<name>"` or `button "<name>"`, to an object the card does not have, THEN THE system SHALL reject it, keep the previous script, and show a message that names each missing object and lists the objects the card has.
+2. WHEN the system decides whether a card has an object, THE system SHALL match kind and name exactly as the runtime does when the script runs, so a script accepted here cannot fail at run time with `does not exist`.
+3. WHILE the offline provider is selected, THE system SHALL enable the one-click chip of a bundled description only if its bundled script passes criterion 1 on the card being shown, and SHALL show every other chip disabled with a title naming the card that description belongs to.
+4. WHEN the system compiles a description with the Anthropic provider, THE request SHALL list the kind and name of every object on the card.

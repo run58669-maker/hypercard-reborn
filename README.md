@@ -155,8 +155,9 @@ Stated plainly, so nobody has to guess from the commit log:
 | CI fixes on Windows and for the boundary check, the phone-width fix, the first-screen introduction and the 1987 styling | Claude Code, outside the spec's task list; recorded afterwards as tasks 15.1 and 15.2 | pull requests #2, #3 and #4 |
 | Requirement 5 (keyboard) and tasks 16.1 to 16.4 in the spec | Claude Code | commits `e9529ab`, `c087baa`, `56b2ddb` |
 | Tasks 16.1 to 16.4 (arrow keys and Escape, the keyboard end-to-end spec, unit tests that can fail, focus after Escape, end cards, input methods) | **Kiro**, executing each task from the Kiro spec view; Claude Code checked each one and ticked 16.4 after the Kiro session stopped before marking it done | commits `734866d`, `00a669c`, `c6db824`, `0385195`; pull request #6 |
+| Requirement 6 (a compiled script must fit the card's objects) and tasks 17.1 to 17.4: the object check, the `unknown-object` compile error, chips that are enabled only on the card they fit, the rewritten end-to-end test | Claude Code, in the spec and in the code; none of the four tasks was run in Kiro | commits `54130d5`, `20662be`, `bb0a9a7`, `424d407`, `e4d88fb` and the 17.4 commit |
 
-So Kiro executed 6 of the 53 sub-tasks: 1.1, 1.2 and 16.1 to 16.4. The spec, steering
+So Kiro executed 6 of the 57 sub-tasks: 1.1, 1.2 and 16.1 to 16.4. The spec, steering
 and hooks are real Kiro artefacts and Kiro ran against them, but most of the
 implementation was not typed by Kiro's agent. The three hooks are configured in `.kiro/hooks/`, and the pre-commit gate
 has a plain-git twin in `.githooks/` that ran on every commit; whether the two `askAgent`
@@ -166,9 +167,9 @@ hooks fired inside Kiro during those tasks was not recorded.
 
 | File | What it holds |
 |---|---|
-| `requirements.md` | 5 requirements, 21 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
+| `requirements.md` | 6 requirements, 25 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
 | `design.md` | Module boundaries, the one invariant (`Card.script` is the only executable artefact), every public type, every parse and runtime error message, the six seeded card layouts, the `data-testid` contract, assumptions taken where the requirements leave room. |
-| `tasks.md` | 16 groups, 53 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
+| `tasks.md` | 17 groups, 57 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
 | `examples/<id>.hc/` | The six bundled cards as `description.txt` + `script.hc`, byte-identical to `docs/grammar.md` §8. The app imports these files directly. |
 
 `docs/grammar.md` is the language definition everything derives from: the parser

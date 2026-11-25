@@ -10,8 +10,9 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
+import { objectsLine } from '../messages'
 import { SYSTEM_PROMPT } from '../prompt'
-import { MissingKey, ProviderError, type CompileProvider } from '../types'
+import { MissingKey, ProviderError, type CompileContext, type CompileProvider } from '../types'
 
 export const API_KEY_STORAGE_KEY = 'hcr.anthropicApiKey'
 export const MODEL = 'claude-haiku-5-5'
@@ -36,7 +37,7 @@ export function createAnthropicProvider(options: AnthropicProviderOptions = {}):
   return {
     id: 'anthropic',
     model: MODEL,
-    async compile(description: string, signal: AbortSignal): Promise<string> {
+    async compile(description: string, context: CompileContext, signal: AbortSignal): Promise<string> {
       const storage = options.storage ?? globalThis.localStorage
       const apiKey = storage.getItem(API_KEY_STORAGE_KEY)
       if (apiKey === null || apiKey === '') throw new MissingKey()
@@ -55,7 +56,8 @@ export function createAnthropicProvider(options: AnthropicProviderOptions = {}):
             model: MODEL,
             max_tokens: MAX_TOKENS,
             system: SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: description }],
+            // The card's objects follow the description; the system prompt stays as it is (design.md §6.8).
+            messages: [{ role: 'user', content: `${description}\n\n${objectsLine(context.objects)}` }],
             output_config: { format: OUTPUT_FORMAT },
           },
           { signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]) },

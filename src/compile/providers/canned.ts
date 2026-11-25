@@ -1,7 +1,8 @@
 // The offline compile provider (design.md §6.3): looks the normalised
 // description up among the six bundled examples and returns that example's
-// script. No network, no key. Async only so the UI is identical for both
-// providers.
+// script. No network, no key, and the card's objects (the second argument of
+// CompileProvider.compile) are not read: the service checks them afterwards.
+// Async only so the UI is identical for both providers.
 import { EXAMPLES } from '../../examples'
 import { normalise } from '../normalise'
 import { NoCannedMatch, type CompileProvider } from '../types'

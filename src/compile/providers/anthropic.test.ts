@@ -57,26 +57,27 @@ function provider(key: string | null, respond: () => Promise<Response>) {
 }
 
 const signal = () => new AbortController().signal
+const GREETING = { objects: [{ kind: 'field', name: 'greeting' }] } as const
 
 describe('createAnthropicProvider', () => {
   it('throws MissingKey without a key and makes no request', async () => {
     const { provider: p, calls } = provider(null, () => Promise.resolve(jsonResponse(message())))
-    await expect(p.compile('x', signal())).rejects.toBeInstanceOf(MissingKey)
+    await expect(p.compile('x', GREETING, signal())).rejects.toBeInstanceOf(MissingKey)
     expect(calls).toHaveLength(0)
     const empty = provider('', () => Promise.resolve(jsonResponse(message())))
-    await expect(empty.provider.compile('x', signal())).rejects.toBeInstanceOf(MissingKey)
-    expect(await compile('x', p)).toEqual({ ok: false, error: { kind: 'auth', message: MESSAGES.authMissing } })
+    await expect(empty.provider.compile('x', GREETING, signal())).rejects.toBeInstanceOf(MissingKey)
+    expect(await compile('x', p, GREETING)).toEqual({ ok: false, error: { kind: 'auth', message: MESSAGES.authMissing } })
   })
 
   it('returns the script from a well-formed structured response with one fetch call', async () => {
     const { provider: p, calls } = provider('sk-test', () => Promise.resolve(jsonResponse(message())))
-    expect(await p.compile('When the card opens, greet.', signal())).toBe(SCRIPT)
+    expect(await p.compile('When the card opens, greet.', GREETING, signal())).toBe(SCRIPT)
     expect(calls).toHaveLength(1)
   })
 
   it('sends the model id, exactly one user message, the system prompt, and no temperature or fallbacks', async () => {
     const { provider: p, calls } = provider('sk-test', () => Promise.resolve(jsonResponse(message())))
-    await p.compile('Describe me.', signal())
+    await p.compile('Describe me.', GREETING, signal())
     const call = calls[0]
     expect(call?.url).toBe('https://api.anthropic.com/v1/messages')
     expect(call?.init.method).toBe('POST')
@@ -85,7 +86,12 @@ describe('createAnthropicProvider', () => {
     const body = JSON.parse(rawBody) as Record<string, unknown>
     expect(body['model']).toBe(MODEL)
     expect(body['max_tokens']).toBe(MAX_TOKENS)
-    expect(body['messages']).toEqual([{ role: 'user', content: 'Describe me.' }])
+    expect(body['messages']).toEqual([
+      {
+        role: 'user',
+        content: 'Describe me.\n\nThis card has exactly these objects: field "greeting". Do not refer to any other field or button.',
+      },
+    ])
     expect(typeof body['system']).toBe('string')
     expect(body['system']).toContain('# Language')
     expect(body['output_config']).toMatchObject({ format: { type: 'json_schema' } })
@@ -99,13 +105,46 @@ describe('createAnthropicProvider', () => {
     expect(headers.get('authorization')).toBe('Bearer sk-test')
   })
 
+  function userContent(call: { init: RequestInit } | undefined): string {
+    const rawBody = call?.init.body
+    if (typeof rawBody !== 'string') throw new Error('expected a string request body')
+    const messages = (JSON.parse(rawBody) as { messages: { role: string; content: string }[] }).messages
+    expect(messages).toHaveLength(1)
+    return messages[0]?.content ?? ''
+  }
+
+  it('ends the user message with the objects line for a card with objects', async () => {
+    const { provider: p, calls } = provider('sk-test', () => Promise.resolve(jsonResponse(message())))
+    const objects = [
+      { kind: 'field', name: 'count' },
+      { kind: 'button', name: 'Increment' },
+    ] as const
+    await p.compile('Count the clicks.', { objects }, signal())
+    expect(userContent(calls[0])).toBe(
+      'Count the clicks.\n\nThis card has exactly these objects: field "count", button "Increment". Do not refer to any other field or button.',
+    )
+  })
+
+  it('ends the user message with the no-objects sentence for a card without objects', async () => {
+    const { provider: p, calls } = provider('sk-test', () => Promise.resolve(jsonResponse(message())))
+    await p.compile('Say hello.', { objects: [] }, signal())
+    expect(userContent(calls[0])).toBe('Say hello.\n\nThis card has no fields and no buttons.')
+  })
+
+  it('goes through the service as unknown-object when the model names an object the card lacks, with one fetch call', async () => {
+    const { provider: p, calls } = provider('sk-test', () => Promise.resolve(jsonResponse(message())))
+    const result = await compile('x', p, { objects: [{ kind: 'field', name: 'count' }] })
+    expect(result).toMatchObject({ ok: false, error: { kind: 'unknown-object', missing: [{ kind: 'field', name: 'greeting' }], candidate: SCRIPT } })
+    expect(calls).toHaveLength(1)
+  })
+
   it('reads the key at call time', async () => {
     let key: string | null = null
     const { fetchMock, calls } = mockFetch(() => Promise.resolve(jsonResponse(message())))
     const p = createAnthropicProvider({ storage: { getItem: () => key }, fetch: fetchMock })
-    await expect(p.compile('x', signal())).rejects.toBeInstanceOf(MissingKey)
+    await expect(p.compile('x', GREETING, signal())).rejects.toBeInstanceOf(MissingKey)
     key = 'sk-later'
-    await p.compile('x', signal())
+    await p.compile('x', GREETING, signal())
     expect(new Headers(calls[0]?.init.headers).get('authorization')).toBe('Bearer sk-later')
   })
 
@@ -119,21 +158,21 @@ describe('createAnthropicProvider', () => {
     ['529', () => Promise.resolve(apiError(529, 'overloaded_error')), 'api', 'Anthropic returned an error (HTTP 529). Press Save to try again.'],
   ])('maps %s to %s with one fetch call', async (_label, respond, kind, expectedMessage) => {
     const { provider: p, calls } = provider('sk-test', respond)
-    const result = await compile('x', p)
+    const result = await compile('x', p, GREETING)
     expect(result).toMatchObject({ ok: false, error: { kind, message: expectedMessage } })
     expect(calls).toHaveLength(1)
   })
 
   it('throws a ProviderError of kind api with the status', async () => {
     const { provider: p } = provider('sk-test', () => Promise.resolve(apiError(503, 'api_error')))
-    await expect(p.compile('x', signal())).rejects.toMatchObject({ kind: 'api', status: 503 })
-    const result = await compile('x', p)
+    await expect(p.compile('x', GREETING, signal())).rejects.toMatchObject({ kind: 'api', status: 503 })
+    const result = await compile('x', p, GREETING)
     expect(result).toMatchObject({ ok: false, error: { kind: 'api', status: 503 } })
   })
 
   it('does not retry a 429 (maxRetries 0)', async () => {
     const { provider: p, calls } = provider('sk-test', () => Promise.resolve(apiError(429, 'rate_limit_error')))
-    await expect(p.compile('x', signal())).rejects.toBeInstanceOf(ProviderError)
+    await expect(p.compile('x', GREETING, signal())).rejects.toBeInstanceOf(ProviderError)
     expect(calls).toHaveLength(1)
   })
 
@@ -143,21 +182,21 @@ describe('createAnthropicProvider', () => {
       controller.abort()
       return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
     })
-    const result = await compile('x', p, controller.signal)
+    const result = await compile('x', p, GREETING, controller.signal)
     expect(result).toMatchObject({ ok: false, error: { kind: 'network', message: MESSAGES.network } })
   })
 
   it('hands the raw text to the service when the output is not valid structured output', async () => {
     const raw = 'on openCard\n  put 1 into button "b"\nend openCard\n'
     const { provider: p } = provider('sk-test', () => Promise.resolve(jsonResponse(message({ content: [{ type: 'text', text: raw }] }))))
-    const result = await compile('x', p)
+    const result = await compile('x', p, GREETING)
     expect(result).toMatchObject({ ok: false, error: { kind: 'invalid-script', candidate: raw, parseError: { line: 2 } } })
   })
 
   it('returns invalid-script through the service when the structured script does not parse', async () => {
     const bad = 'on openCard\nend mouseUp\n'
     const { provider: p } = provider('sk-test', () => Promise.resolve(jsonResponse(message({ content: [{ type: 'text', text: JSON.stringify({ script: bad }) }] }))))
-    const result = await compile('x', p)
+    const result = await compile('x', p, GREETING)
     expect(result).toMatchObject({ ok: false, error: { kind: 'invalid-script', candidate: bad } })
   })
 

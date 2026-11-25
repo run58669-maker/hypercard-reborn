@@ -5,18 +5,29 @@ import { EXAMPLES } from '../examples'
 import { createCardRuntime } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createCardView } from './cardView'
-import type { Compiler } from './compiler'
-import { STALE_NOTICE } from './descriptionPanel'
+import { lazyCompiler, type Compiler } from './compiler'
+import { STALE_NOTICE, unfitChipTitle } from './descriptionPanel'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 const counter = EXAMPLES[1]
 if (counter === undefined) throw new Error('no counter example')
 
-/** A fake compiler: a fixed hash per normalised text, and a scripted compile. */
+// The real object check (src/compile/objectCheck.ts through the lazy loader), so the
+// chip tests exercise the same code the app runs. Nothing here reads the storage.
+const real = await lazyCompiler({ getItem: () => null, setItem: () => undefined, removeItem: () => undefined })()
+
+/** A fake compiler: a fixed hash per normalised text, a scripted compile, the real object check. */
 function fakeCompiler(compileImpl: (description: string) => CompileResult) {
   const hash = (text: string): Promise<string> => Promise.resolve(`hash:${text.trim().toLowerCase()}`)
-  const spy = vi.fn((description: string) => Promise.resolve(compileImpl(description)))
-  const compiler: Compiler = { compile: (description) => spy(description), descriptionHash: hash }
+  const spy = vi.fn((description: string, objects: readonly { kind: string; name: string }[]) => {
+    void objects
+    return Promise.resolve(compileImpl(description))
+  })
+  const compiler: Compiler = {
+    compile: (description, _provider, context) => spy(description, context.objects),
+    descriptionHash: hash,
+    missingObjects: (script, objects) => real.missingObjects(script, objects),
+  }
   return { compiler, spy }
 }
 
@@ -45,8 +56,9 @@ function setup(compiler: Compiler, id = 'hello', provider: 'canned' | 'anthropic
 }
 
 describe('description panel', () => {
-  it('shows the description, the chips for the offline provider and the origin line', () => {
+  it('shows the description, the chips for the offline provider and the origin line', async () => {
     const { q, input } = setup(fakeCompiler(() => ok('', '')).compiler)
+    await flush()
     expect(input.value).toBe(EXAMPLES[0]?.description)
     expect(input.readOnly).toBe(false)
     for (const example of EXAMPLES) expect(q(`chip-${example.id}`)?.textContent).toBe(example.title)
@@ -60,11 +72,100 @@ describe('description panel', () => {
     expect(q('chip-hello')).toBeNull()
   })
 
-  it('a chip fills the description without saving', () => {
-    const { q, input, store } = setup(fakeCompiler(() => ok('', '')).compiler)
-    q<HTMLButtonElement>('chip-counter')?.click()
+  it('a chip that fits the card fills the description without saving', async () => {
+    const { q, input, store } = setup(fakeCompiler(() => ok('', '')).compiler, 'counter')
+    await flush()
+    input.value = 'Something else.'
+    const chip = q<HTMLButtonElement>('chip-counter')
+    expect(chip?.disabled).toBe(false)
+    expect(chip?.title).toBe(counter.description)
+    chip?.click()
     expect(input.value).toBe(counter.description)
-    expect(store.getCard('hello')?.description).toBe(EXAMPLES[0]?.description)
+    expect(store.getCard('counter')?.description).toBe(counter.description)
+  })
+
+  it('on the Hello card only the Hello chip is enabled; the others say which card to open', async () => {
+    const { q } = setup(fakeCompiler(() => ok('', '')).compiler)
+    await flush()
+    for (const example of EXAMPLES) {
+      const chip = q<HTMLButtonElement>(`chip-${example.id}`)
+      expect(chip?.disabled, example.id).toBe(example.id !== 'hello')
+      expect(chip?.title, example.id).toBe(example.id === 'hello' ? example.description : unfitChipTitle(example.title))
+    }
+    expect(q<HTMLButtonElement>('chip-counter')?.title).toBe('Needs objects this card does not have. Open the Counter card to use it.')
+  })
+
+  it('on the Counter card the Counter chip is enabled and the Hello chip is not', async () => {
+    const { q } = setup(fakeCompiler(() => ok('', '')).compiler, 'counter')
+    await flush()
+    expect(q<HTMLButtonElement>('chip-counter')?.disabled).toBe(false)
+    expect(q<HTMLButtonElement>('chip-hello')?.disabled).toBe(true)
+    expect(q<HTMLButtonElement>('chip-hello')?.title).toContain('Hello')
+  })
+
+  it('a disabled chip leaves the description unchanged, whether clicked or sent a click event', async () => {
+    const { q, input } = setup(fakeCompiler(() => ok('', '')).compiler)
+    await flush()
+    const chip = q<HTMLButtonElement>('chip-counter')
+    expect(chip?.disabled).toBe(true)
+    chip?.click()
+    expect(input.value).toBe(EXAMPLES[0]?.description)
+    // A disabled button drops real clicks; the handler is called here directly to check its own guard.
+    if (chip !== null) chip.disabled = false
+    chip?.setAttribute('disabled', '')
+    chip?.dispatchEvent(new MouseEvent('click'))
+    expect(input.value).toBe(EXAMPLES[0]?.description)
+  })
+
+  it('chips are disabled until the object check has loaded', () => {
+    const { q } = setup(fakeCompiler(() => ok('', '')).compiler)
+    for (const example of EXAMPLES) expect(q<HTMLButtonElement>(`chip-${example.id}`)?.disabled, example.id).toBe(true)
+  })
+
+  it('chips stay disabled when the compile module cannot be loaded', async () => {
+    const store = createCardStore({ initial: seedCards(NOW), now: () => NOW })
+    const runtime = createCardRuntime({ cardCount: () => 6, onNavigate: () => undefined, now: () => NOW })
+    const card = store.getCard('hello')
+    if (card === undefined) throw new Error('no card hello')
+    const view = createCardView(card, { store, runtime, provider: () => 'canned', loadCompiler: () => Promise.reject(new Error('offline')), now: () => NOW })
+    document.body.replaceChildren(view.element)
+    view.show()
+    view.flip()
+    await flush()
+    expect(view.element.querySelector<HTMLButtonElement>('[data-testid="chip-hello"]')?.disabled).toBe(true)
+  })
+
+  it('Save passes the objects of the card to the compiler', async () => {
+    const { compiler, spy } = fakeCompiler((d) => ok(d, counter.script))
+    const { save, store } = setup(compiler, 'counter')
+    save.click()
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0]?.[1]).toEqual(store.getCard('counter')?.objects)
+    expect(spy.mock.calls[0]?.[1].map((o) => `${o.kind} ${o.name}`)).toEqual(counter.objects.map((o) => `${o.kind} ${o.name}`))
+  })
+
+  it('unknown-object shows the message and the rejected candidate and commits nothing', async () => {
+    const message =
+      'The compiled script refers to field "count", which this card does not have. This card has: field "greeting". The previous script is still running.'
+    const { compiler } = fakeCompiler(() => ({
+      ok: false,
+      error: { kind: 'unknown-object', message, missing: [{ kind: 'field', name: 'count' }], candidate: counter.script },
+    }))
+    const { q, input, save, store } = setup(compiler)
+    const commit = vi.spyOn(store, 'commitScript')
+    const before = store.getCard('hello')?.script
+    input.value = counter.description
+    save.click()
+    await flush()
+    expect(q('compile-error')?.hidden).toBe(false)
+    expect(q('compile-error')?.textContent).toContain(message)
+    expect(q('compile-candidate')?.textContent).toBe(counter.script)
+    expect(commit).not.toHaveBeenCalled()
+    expect(store.getCard('hello')?.script).toBe(before)
+    expect(store.getCard('hello')?.scriptOrigin.kind).toBe('seed')
+    expect(q('stored-script')?.textContent).toBe(before)
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('Hello, world!')
   })
 
   it('Save saves the description, compiles once, commits the script and re-runs the card', async () => {
@@ -156,7 +257,7 @@ describe('description panel', () => {
   })
 
   it('reports a compiler that throws without leaving Save disabled', async () => {
-    const compiler: Compiler = { compile: () => Promise.reject(new Error('boom')), descriptionHash: () => Promise.resolve('') }
+    const compiler: Compiler = { compile: () => Promise.reject(new Error('boom')), descriptionHash: () => Promise.resolve(''), missingObjects: () => [] }
     const { q, save } = setup(compiler)
     save.click()
     await flush()
