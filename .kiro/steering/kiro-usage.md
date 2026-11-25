@@ -16,7 +16,8 @@ phases and never skipped ahead:
 1. **`requirements.md`** came first, in EARS form (WHEN / WHILE / IF ... THE system SHALL).
    Four requirements, fourteen numbered acceptance criteria, in the first build; a fifth
    (keyboard access, five criteria, then two more from review) was added afterwards and went through the same
-   requirements, design, tasks order. Every later artefact points back at these numbers
+   requirements, design, tasks order. A sixth (a compiled script must fit the card's
+   objects, four criteria) followed the same way. Every later artefact points back at these numbers
    and nothing else counts as "done".
 2. **`design.md`** was written against those criteria before any code. It fixes the module
    boundaries, the one invariant that makes the product honest (`Card.script` is the only
@@ -30,9 +31,9 @@ phases and never skipped ahead:
    is to execute tasks from the Kiro spec view one at a time, in order, with the hooks
    below running as files change.
 
-**What actually ran in Kiro.** Six of the 53 sub-tasks were executed from the Kiro spec
+**What actually ran in Kiro.** Six of the 57 sub-tasks were executed from the Kiro spec
 view: 1.1, 1.2 and 16.1 to 16.4. Their execution ids are in
-`.kiro/specs/flip-card/tasks.meta.json`. The other sub-tasks (1.3 to 14.3) were written
+`.kiro/specs/flip-card/tasks.meta.json`. The other sub-tasks (1.3 to 14.3, 15.1, 15.2 and 17.1 to 17.4) were written
 by Claude Code against the same `tasks.md`, one sub-task per commit; the README's "Who
 built what" table has the commit references. We have no record of whether the two
 `askAgent` hooks fired during the Kiro executions.

@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('compile offline: the counter chip turns the hello card into a counter; an unknown description keeps the previous script; no network', async ({ page }) => {
+test('compile offline: the hello card refuses the counter description and keeps its script; an unknown description keeps it too; no network', async ({ page }) => {
   await page.goto('/')
   await page.waitForLoadState('load')
   const requests: string[] = []
@@ -21,21 +21,28 @@ test('compile offline: the counter chip turns the hello card into a counter; an 
   await page.getByTestId('flip').click()
   await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'back')
 
-  // Pick the counter chip and Save: compile once, store, re-run.
-  await page.getByTestId('chip-counter').click()
-  await expect(page.getByTestId('description-input')).toHaveValue(COUNTER_DESCRIPTION)
+  // Chips follow the card: only the one whose script fits these objects can be picked.
+  await expect(page.getByTestId('chip-hello')).toBeEnabled()
+  await expect(page.getByTestId('chip-counter')).toBeDisabled()
+  await expect(page.getByTestId('chip-counter')).toHaveAttribute('title', /Counter/)
+
+  // Typing the counter description by hand and saving: the compiled script names
+  // field "count", which this card does not have, so it is refused and nothing is stored.
+  await page.getByTestId('description-input').fill(COUNTER_DESCRIPTION)
   await page.getByTestId('save-description').click()
   await expect(page.getByTestId('save-description')).toBeEnabled()
-  await expect(page.getByTestId('compile-error')).toBeHidden()
-  await expect(page.getByTestId('stored-script')).toContainText('if the target is "Increment" then')
-  await expect(page.getByTestId('script-origin')).toContainText('compiled offline at')
-  await expect(page.getByTestId('stale-notice')).toBeHidden()
+  // The error block holds the message followed by the rejected candidate.
+  await expect(page.getByTestId('compile-error')).toContainText(
+    'The compiler produced a script for objects this card does not have (field "count"). This card has: field "greeting". The previous script is still running.',
+  )
+  await expect(page.getByTestId('compile-candidate')).toContainText('if the target is "Increment" then')
+  await expect(page.getByTestId('stored-script')).toContainText('Hello, world!')
+  await expect(page.getByTestId('stored-script')).not.toContainText('Increment')
 
-  // The front face (still the hello layout) now runs the counter script: its
-  // openCard puts 0 into field "count", which this card does not have, so the
-  // status line reports it; the greeting field is left alone.
+  // The front face still runs the hello script, with no runtime error.
   await page.getByTestId('flip').click()
-  await expect(page.getByTestId('status-line')).toHaveText('Runtime error in openCard, line 2: field "count" does not exist')
+  await expect(page.getByTestId('field-greeting')).toHaveValue('Hello, world!')
+  await expect(page.getByTestId('status-line')).toHaveText('')
 
   // An unknown description: the no-match message, the previous script still shown and running.
   await page.getByTestId('flip').click()
@@ -46,10 +53,12 @@ test('compile offline: the counter chip turns the hello card into a counter; an 
     'The offline compiler only knows the six bundled descriptions. Pick one from the list, or add an Anthropic key in Settings.',
   )
   await expect(page.getByTestId('compile-candidate')).toHaveCount(0)
-  await expect(page.getByTestId('stored-script')).toContainText('if the target is "Increment" then')
-  await expect(page.getByTestId('stale-notice')).toBeVisible()
+  await expect(page.getByTestId('stored-script')).toContainText('Hello, world!')
+  // The stored script is still the seeded one, never compiled, so there is no stale notice.
+  await expect(page.getByTestId('stale-notice')).toBeHidden()
   await page.getByTestId('flip').click()
-  await expect(page.getByTestId('status-line')).toHaveText('Runtime error in openCard, line 2: field "count" does not exist')
+  await expect(page.getByTestId('field-greeting')).toHaveValue('Hello, world!')
+  await expect(page.getByTestId('status-line')).toHaveText('')
 
   const afterLoad = requests.filter((url) => !url.endsWith('/') && !url.includes('/index.html'))
   expect(afterLoad).toEqual([])
