@@ -126,8 +126,8 @@ Notes:
 - \`set visible of field "x" to false\` is equivalent to \`hide field "x"\`.
 - \`go to card N\` sends \`openCard\` to card N after the current handler finishes. If N
   is out of range it is a runtime error and the current card stays.
-- Nesting depth of \`if\` and \`repeat\` is unlimited by the grammar; the interpreter caps
-  total statement executions (§7).
+- Nesting depth of \`if\` and \`repeat\` is unlimited by the grammar but capped by the
+  parser (§6); the interpreter caps total statement executions (§7).
 
 ## 4. Expressions
 
@@ -221,6 +221,8 @@ The parser returns the **first** error it meets, never a list, with:
 - \`near\`: the source line text, so the UI can show it without re-reading the script.
 
 Error messages must be stable: tests assert on them, and the flipped card shows them verbatim.
+
+A script may nest at most 64 levels (each \`(\`, \`not\`, unary \`-\`, operator applied in a chain, and enclosing block \`if\` or \`repeat\` counts as one); deeper is the parse error \`nested too deeply (limit 64)\` at the token that would open level 65.
 
 ## 7. Runtime limits
 
