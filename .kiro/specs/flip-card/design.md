@@ -846,6 +846,7 @@ change here first.
 | Card root, front face, back face | `card`, `card-front`, `card-back` |
 | Flip control (both faces) | `flip` |
 | Header | `card-name`, `card-position`, `card-prev`, `card-next`, `settings-open` |
+| Notice (§5.7) | `moved-notice`, `open-held-<n>` (`n` is the card number) |
 | First-visit copy (§7.1) | `app-intro`, `flip-hint` |
 | Front-face objects | `field-<name>`, `button-<name>` (name lower-cased, spaces to `-`) |
 | Status line, message box | `status-line`, `message-box` |

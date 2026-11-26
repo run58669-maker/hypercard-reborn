@@ -386,9 +386,10 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - `docs/traceability.md` gets a Requirement 7 table with rows 7.1 to 7.7. `README.md` and `kiro-usage.md`: the counts become 7 requirements, 32 criteria, 18 groups and 62 sub-tasks, and the "Who built what" table gets a row for 18.x saying who wrote each task and that a second model reviewed the design.
     - Done when: the e2e suite passes with `PW_CHANNEL=chrome`; `npm run lint`, `npm run typecheck` and `npm test` pass.
     - _Requirements: 7.1, 7.2, 7.4, 7.6, 4.3_
-  - [ ] 18.6 Fixes from the reviews of 18.1 to 18.5
+  - [x] 18.6 Fixes from the reviews of 18.1 to 18.5
     - Written by Claude (Fable 5.2), not run in Kiro. Three Claude review agents and GPT (through the Codex CLI) read the branch and ran nothing. Each finding taken up here was first reproduced by a test that failed.
-    - Files: `src/runtime/cardRuntime.ts`, `src/runtime/cardRuntime.test.ts`, `design.md` §5.5.
+    - Files: `src/runtime/cardRuntime.ts`, `src/runtime/cardRuntime.test.ts`, `design.md` §5.5 and §7.3, `requirements.md` (wording of 7.4), `docs/grammar.md` (§6, §7), `docs/traceability.md` (rows 7.4, 7.5, 7.8, 7.9), `README.md`, `.kiro/steering/kiro-usage.md` (the counts are now 34 criteria and 65 sub-tasks).
+    - Not taken up, and still open after this task: a Commit or Save when browser storage is full changes the card in memory and not in storage; a Save that returns after a later Commit or Reset overwrites it; the nesting tests named `%s without throwing` only show that nothing throws; requirement 7.1 has no test for the arrow keys.
     - (a) A handler that stops with an error after `go to card` no longer moves the stack: `send` forgets the recorded request when the run failed, for `openCard` and for `mouseUp`. Before, the stack moved and the error left the screen with the card. (b) The dialog's `close` event closes it the way OK does, so a dialog the browser closed without firing `cancel` does not leave the card inert.
     - Done when: runtime tests show that `answer "before"`, `go to card 2`, `go to card 99` in `openCard` shows the dialog, does not call `onNavigate`, and leaves `card 99 does not exist` in the status line, and that a later re-run with a script that stays does not navigate either; the same for `mouseUp`; a `close` event on an open dialog removes it, performs the recorded move once and leaves the buttons working. `npm run lint`, `npm run typecheck` and `npm test` pass.
     - _Requirements: 7.3, 7.6_

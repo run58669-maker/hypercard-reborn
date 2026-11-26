@@ -33,9 +33,9 @@ phases and never skipped ahead:
    is to execute tasks from the Kiro spec view one at a time, in order, with the hooks
    below running as files change.
 
-**What actually ran in Kiro.** Six of the 62 sub-tasks were executed from the Kiro spec
+**What actually ran in Kiro.** Six of the 65 sub-tasks were executed from the Kiro spec
 view: 1.1, 1.2 and 16.1 to 16.4. Their execution ids are in
-`.kiro/specs/flip-card/tasks.meta.json`. The other sub-tasks (1.3 to 14.3, 15.1, 15.2, 17.1 to 17.4 and 18.1 to 18.5) were written
+`.kiro/specs/flip-card/tasks.meta.json`. The other sub-tasks (1.3 to 14.3, 15.1, 15.2, 17.1 to 17.4 and 18.1 to 18.8) were written
 by Claude Code against the same `tasks.md`, one sub-task per commit; the README's "Who
 built what" table has the commit references. We have no record of whether the two
 `askAgent` hooks fired during the Kiro executions.
