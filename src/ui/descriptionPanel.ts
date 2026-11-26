@@ -39,6 +39,10 @@ export const DESCRIPTION_NOT_SAVED =
 export const SCRIPT_NOT_SAVED =
   "The compiled script was not saved: the browser's storage is full or unavailable. The previous script is still running."
 
+/** Shown when the card was committed or reset while its description was compiling (requirement 8.5). */
+export const SAVE_OVERTAKEN =
+  'The card changed while this description was compiling, so the compiled script was not stored. Press Save to compile it again.'
+
 /** The title of a chip whose script names objects the rendered card lacks (design.md §6.8). */
 export function unfitChipTitle(exampleTitle: string): string {
   return `Needs objects this card does not have. Open the ${exampleTitle} card to use it.`
@@ -191,12 +195,18 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
           showError(DESCRIPTION_NOT_SAVED, null)
           return
         }
+        // The card as this Save left it. A Commit or a Reset replaces the object (design.md §6.1).
+        const saved = deps.store.getCard(deps.cardId)
         const compiler = await deps.loadCompiler()
         const objects = deps.store.getCard(deps.cardId)?.objects ?? []
         const result = await compiler.compile(description, deps.provider(), { objects }, new AbortController().signal)
         if (!result.ok) {
           const rejected = result.error.kind === 'invalid-script' || result.error.kind === 'unknown-object' ? result.error.candidate : null
           showError(result.error.message, rejected)
+          return
+        }
+        if (deps.store.getCard(deps.cardId) !== saved) {
+          showError(SAVE_OVERTAKEN, null)
           return
         }
         const origin: ScriptOrigin =

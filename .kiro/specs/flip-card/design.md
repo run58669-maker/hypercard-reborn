@@ -583,9 +583,9 @@ sequenceDiagram
 
 "Exactly once" (requirement 1.1) is guaranteed by three things:
 
-**A Save that answers late (requirement 8.5).** The compile is the only `await` between
-`saveDescription` and `commitScript`, and Commit and Reset stay usable while it runs. The
-panel keeps the `Card` snapshot the store holds right after `saveDescription` and, when
+**A Save that answers late (requirement 8.5).** Between `saveDescription` and
+`commitScript` the panel waits for the compile module and for the compile, and Commit
+and Reset stay usable meanwhile. The panel keeps the `Card` snapshot the store holds right after `saveDescription` and, when
 the compile has answered with a script, compares it with the snapshot the store holds
 then. Cards are immutable and every change replaces the object, so the two are the same
 object exactly when nothing has touched the card: a Commit of a changed draft and a

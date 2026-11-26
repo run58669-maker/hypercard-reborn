@@ -6,7 +6,7 @@ import { createCardRuntime } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createCardView } from './cardView'
 import { lazyCompiler, type Compiler } from './compiler'
-import { DESCRIPTION_NOT_SAVED, SCRIPT_NOT_SAVED, STALE_NOTICE, unfitChipTitle } from './descriptionPanel'
+import { DESCRIPTION_NOT_SAVED, SAVE_OVERTAKEN, SCRIPT_NOT_SAVED, STALE_NOTICE, unfitChipTitle } from './descriptionPanel'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 const counter = EXAMPLES[1]
@@ -34,6 +34,32 @@ function fakeCompiler(compileImpl: (description: string) => CompileResult) {
 function ok(description: string, script: string): CompileResult {
   return { ok: true, script, descriptionHash: `hash:${description.trim().toLowerCase()}`, provider: 'canned' }
 }
+
+/** A compiler whose answer the test holds back: `answer` settles the one compile in flight. */
+function heldCompiler() {
+  let settle: (result: CompileResult) => void = () => undefined
+  const spy = vi.fn(
+    () =>
+      new Promise<CompileResult>((resolve) => {
+        settle = resolve
+      }),
+  )
+  const compiler: Compiler = {
+    compile: () => spy(),
+    descriptionHash: (text) => Promise.resolve(`hash:${text.trim().toLowerCase()}`),
+    missingObjects: (script, objects) => real.missingObjects(script, objects),
+  }
+  return {
+    compiler,
+    spy,
+    answer: (result: CompileResult): void => {
+      settle(result)
+    },
+  }
+}
+
+const COMMITTED = 'on openCard\n  put "committed by hand" into field "greeting"\nend openCard\n'
+const COMPILED = 'on openCard\n  put "compiled" into field "greeting"\nend openCard\n'
 
 const flush = async (): Promise<void> => {
   for (let i = 0; i < 5; i += 1) await Promise.resolve()
@@ -326,6 +352,112 @@ describe('description panel', () => {
     expect(runtime.currentProgram('hello')?.source).toBe(script)
     expect(field.value).toBe('typed on the front')
     expect(save.disabled).toBe(false)
+  })
+
+  // Task 19.2, requirement 8.5: a Save that answers after a Commit or a Reset stores nothing.
+  describe('a Save that answers late', () => {
+    /** Presses Save with `description` typed and waits until the compile is in flight. */
+    async function saving(description: string) {
+      const held = heldCompiler()
+      const page = setup(held.compiler)
+      await flush()
+      page.input.value = description
+      page.save.click()
+      await flush()
+      expect(held.spy).toHaveBeenCalledTimes(1)
+      expect(page.save.disabled).toBe(true)
+      return { ...held, ...page }
+    }
+
+    /** Commits `script` through the editor on the same card, as the author would. */
+    function commitByHand(q: <T extends HTMLElement>(testid: string) => T | null, script: string): void {
+      const editor = q<HTMLTextAreaElement>('script-editor')
+      if (editor === null) throw new Error('no editor')
+      editor.value = script
+      editor.dispatchEvent(new Event('input'))
+      q<HTMLButtonElement>('commit-script')?.click()
+    }
+
+    it('after a Commit: the committed script stays stored and running, commitScript is not called, and the panel says the card changed', async () => {
+      const { q, input, save, store, runtime, spy, answer } = await saving('Say compiled.')
+      commitByHand(q, COMMITTED)
+      expect(store.getCard('hello')?.script).toBe(COMMITTED)
+      const committed = store.getCard('hello')
+      const commit = vi.spyOn(store, 'commitScript')
+
+      answer(ok('Say compiled.', COMPILED))
+      await flush()
+      expect(commit).not.toHaveBeenCalled()
+      expect(store.getCard('hello')).toBe(committed)
+      expect(store.getCard('hello')?.scriptOrigin).toEqual({ kind: 'edited', at: NOW.toISOString() })
+      expect(runtime.currentProgram('hello')?.source).toBe(COMMITTED)
+      expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('committed by hand')
+      expect(q('stored-script')?.textContent).toBe(COMMITTED)
+      expect(q('compile-error')?.hidden).toBe(false)
+      expect(q('compile-error')?.textContent).toBe(SAVE_OVERTAKEN)
+      expect(SAVE_OVERTAKEN).toBe(
+        'The card changed while this description was compiling, so the compiled script was not stored. Press Save to compile it again.',
+      )
+      expect(q('compile-candidate')).toBeNull()
+      expect(store.getCard('hello')?.description).toBe('Say compiled.')
+      expect(input.value).toBe('Say compiled.')
+      expect(save.disabled).toBe(false)
+      expect(q('compile-status')?.textContent).toBe('')
+
+      // Pressing Save again, as the message says, compiles once more and stores the answer.
+      commit.mockRestore()
+      save.click()
+      await flush()
+      expect(spy).toHaveBeenCalledTimes(2)
+      answer(ok('Say compiled.', COMPILED))
+      await flush()
+      expect(store.getCard('hello')?.script).toBe(COMPILED)
+      expect(q('compile-error')?.hidden).toBe(true)
+    })
+
+    it('after a Reset: the bundled script and description stay, commitScript is not called, and the panel says the card changed', async () => {
+      const { q, input, save, store, runtime, answer } = await saving('Say compiled.')
+      expect(store.resetToSeed()).toEqual({ ok: true })
+      const reset = store.getCard('hello')
+      const commit = vi.spyOn(store, 'commitScript')
+
+      answer(ok('Say compiled.', COMPILED))
+      await flush()
+      expect(commit).not.toHaveBeenCalled()
+      expect(store.getCard('hello')).toBe(reset)
+      expect(store.getCard('hello')?.script).toBe(EXAMPLES[0]?.script)
+      expect(store.getCard('hello')?.scriptOrigin).toEqual({ kind: 'seed' })
+      expect(store.getCard('hello')?.description).toBe(EXAMPLES[0]?.description)
+      expect(runtime.currentProgram('hello')?.source).toBe(EXAMPLES[0]?.script)
+      expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('Hello, world!')
+      expect(q('compile-error')?.textContent).toBe(SAVE_OVERTAKEN)
+      expect(input.value).toBe(EXAMPLES[0]?.description)
+      expect(save.disabled).toBe(false)
+    })
+
+    it('with nothing in between, and with a Commit on another card in between, the compiled script is stored', async () => {
+      const { q, store, runtime, answer } = await saving('Say compiled.')
+      expect(store.commitScript('counter', '', { kind: 'edited', at: NOW.toISOString() }).ok).toBe(true)
+
+      answer(ok('Say compiled.', COMPILED))
+      await flush()
+      expect(store.getCard('hello')?.script).toBe(COMPILED)
+      expect(store.getCard('hello')?.scriptOrigin.kind).toBe('compiled')
+      expect(runtime.currentProgram('hello')?.source).toBe(COMPILED)
+      expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('compiled')
+      expect(q('compile-error')?.hidden).toBe(true)
+    })
+
+    it('a compile error that arrives after a Commit is shown as before, and the committed script stays', async () => {
+      const message = 'The offline compiler only knows the six bundled descriptions. Pick one from the list, or add an Anthropic key in Settings.'
+      const { q, store, answer } = await saving('Make the card purple.')
+      commitByHand(q, COMMITTED)
+
+      answer({ ok: false, error: { kind: 'no-canned-match', message } })
+      await flush()
+      expect(q('compile-error')?.textContent).toBe(message)
+      expect(store.getCard('hello')?.script).toBe(COMMITTED)
+    })
   })
 
   it('reports a compiler that throws without leaving Save disabled', async () => {
