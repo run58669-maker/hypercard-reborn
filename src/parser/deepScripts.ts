@@ -12,6 +12,10 @@ export interface DeepScript {
   readonly label: string
   /** One `on mouseUp` handler whose body spends `levels` levels and runs without a runtime error. */
   readonly source: string
+  /** What the handler leaves in `x`, as text. */
+  readonly value: string
+  /** The statements a run of the handler executes. */
+  readonly statements: number
   /** Line and column of the token that opens level `level` (1-based, at most `levels`). */
   readonly opener: (level: number) => Position
 }
@@ -32,6 +36,38 @@ export const CHAIN_OPERATORS: ReadonlyArray<readonly [operator: string, operand:
 
 const PUT = '  put '
 
+/** What a chain of `levels` applications of `operator` to the operand of CHAIN_OPERATORS evaluates to. */
+function chainValue(operator: string, levels: number): string {
+  switch (operator) {
+    case 'or':
+    case 'and':
+      return 'true'
+    case '&':
+      return 'a'.repeat(levels + 1)
+    case '&&':
+      return Array.from({ length: levels + 1 }, () => 'a').join(' ')
+    case '+':
+      return String(levels + 1)
+    case '-':
+      return String(1 - levels)
+    case 'mod':
+      return '0'
+    default:
+      return '1'
+  }
+}
+
+/**
+ * The source of `script` with its one `into x` turned into `into field "x"`, so
+ * a test can read the value from a host and the script holds one object
+ * reference. The line is the last one of its statement, so no opener moves.
+ */
+export function intoField(script: DeepScript): string {
+  const parts = script.source.split(' into x\n')
+  if (parts.length !== 2) throw new Error(`${script.label}: expected one "into x"`)
+  return parts.join(' into field "x"\n')
+}
+
 function handler(body: string): string {
   return `on mouseUp\n${body}end mouseUp\n`
 }
@@ -41,6 +77,8 @@ export function parentheses(levels: number): DeepScript {
   return {
     label: `${String(levels)} parentheses`,
     source: handler(`${PUT}${'('.repeat(levels)}1${')'.repeat(levels)} into x\n`),
+    value: '1',
+    statements: 1,
     opener: (level) => ({ line: 2, column: PUT.length + level }),
   }
 }
@@ -50,6 +88,8 @@ export function nots(levels: number): DeepScript {
   return {
     label: `${String(levels)} not`,
     source: handler(`${PUT}${'not '.repeat(levels)}true into x\n`),
+    value: levels % 2 === 0 ? 'true' : 'false',
+    statements: 1,
     opener: (level) => ({ line: 2, column: PUT.length + 1 + 4 * (level - 1) }),
   }
 }
@@ -59,6 +99,8 @@ export function minuses(levels: number): DeepScript {
   return {
     label: `${String(levels)} unary -`,
     source: handler(`${PUT}${'- '.repeat(levels)}1 into x\n`),
+    value: levels % 2 === 0 ? '1' : '-1',
+    statements: 1,
     opener: (level) => ({ line: 2, column: PUT.length + 1 + 2 * (level - 1) }),
   }
 }
@@ -69,6 +111,8 @@ export function chain(operator: string, operand: string, levels: number): DeepSc
   return {
     label: `a chain of ${String(levels)} "${operator}"`,
     source: handler(`${PUT}${operand}${step.repeat(levels)} into x\n`),
+    value: chainValue(operator, levels),
+    statements: 1,
     opener: (level) => ({ line: 2, column: PUT.length + operand.length + 2 + step.length * (level - 1) }),
   }
 }
@@ -82,6 +126,8 @@ export function comparison(operator: '=' | 'is not', levels: number): DeepScript
   return {
     label: `"${operator}" inside ${String(open)} parentheses`,
     source: handler(`${PUT}${'('.repeat(open)}1 ${operator} 2${')'.repeat(open)} into x\n`),
+    value: operator === '=' ? 'false' : 'true',
+    statements: 1,
     opener: (level) => ({ line: 2, column: PUT.length + level + (level > open ? 2 : 0) }),
   }
 }
@@ -91,6 +137,8 @@ export function ifs(levels: number): DeepScript {
   return {
     label: `${String(levels)} nested block if`,
     source: handler(`${'if true then\n'.repeat(levels)}put 1 into x\n${'end if\n'.repeat(levels)}`),
+    value: '1',
+    statements: levels + 1,
     opener: (level) => ({ line: 1 + level, column: 1 }),
   }
 }
@@ -100,6 +148,8 @@ export function elseIfs(levels: number): DeepScript {
   return {
     label: `${String(levels)} block if nested in else`,
     source: handler(`${'if false then\nput 1 into y\nelse\n'.repeat(levels)}put 1 into x\n${'end if\n'.repeat(levels)}`),
+    value: '1',
+    statements: levels + 1,
     opener: (level) => ({ line: 2 + 3 * (level - 1), column: 1 }),
   }
 }
@@ -109,6 +159,8 @@ export function repeats(levels: number): DeepScript {
   return {
     label: `${String(levels)} nested repeat`,
     source: handler(`${'repeat 1 times\n'.repeat(levels)}put 1 into x\n${'end repeat\n'.repeat(levels)}`),
+    value: '1',
+    statements: levels + 1,
     opener: (level) => ({ line: 1 + level, column: 1 }),
   }
 }
@@ -126,6 +178,8 @@ export function mix(levels: number): DeepScript {
   return {
     label: `${String(open)} parentheses inside ${String(operators)} "+" inside ${String(blocks)} if`,
     source: handler(`${'if true then\n'.repeat(blocks)}${line}${'end if\n'.repeat(blocks)}`),
+    value: String(1 + operators),
+    statements: blocks + 1,
     opener: (level) => {
       if (level <= blocks) return { line: 1 + level, column: 1 }
       if (level <= blocks + open) return { line: 2 + blocks, column: 4 + level - blocks }

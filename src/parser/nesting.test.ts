@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXAMPLES } from '../examples'
+import { withoutPositions } from './arbitraries'
 import type { DeepScript } from './deepScripts'
 import { CHAIN_OPERATORS, chain, deepScripts, elseIfs, ifs, minuses, mix, nots, parentheses, repeats } from './deepScripts'
 import type { ParseError } from './errors'
@@ -58,7 +59,7 @@ describe('nesting limit', () => {
     elseIfs(3000),
     repeats(3000),
   ]
-  it.each(rows(huge))('rejects %s without throwing', (_label, script) => {
+  it.each(rows(huge))('rejects %s, far over the limit, with the same error at the token that opens level 65', (_label, script) => {
     expect(outcome(script.source)).toEqual({ ok: false, error: tooDeep(script) })
   })
 
@@ -67,10 +68,15 @@ describe('nesting limit', () => {
     expect(typeof result === 'object' && result.ok).toBe(true)
   })
 
-  it.each(rows(AT_LIMIT))('prints %s without throwing', (_label, script) => {
+  // Task 19.3: what print returns is checked, not only that it returns.
+  it.each(rows(AT_LIMIT))('prints %s as text that parses back to the same tree and prints the same again', (_label, script) => {
     const result = parse(script.source)
     if (!result.ok) throw new Error(result.error.message)
-    expect(typeof print(result.program)).toBe('string')
+    const printed = print(result.program)
+    const again = parse(printed)
+    if (!again.ok) throw new Error(`the printed text does not parse: ${again.error.message}`)
+    expect(withoutPositions(again.program)).toEqual(withoutPositions(result.program))
+    expect(print(again.program)).toBe(printed)
   })
 
   it('counts 30 parentheses inside 20 "+" inside 15 if as 65 levels', () => {

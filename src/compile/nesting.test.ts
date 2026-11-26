@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { parse } from '../parser'
 import type { Program } from '../parser'
-import { deepScripts, ifs, parentheses } from '../parser/deepScripts'
+import type { DeepScript } from '../parser/deepScripts'
+import { deepScripts, ifs, intoField, parentheses } from '../parser/deepScripts'
 import { referencedObjects } from './objectCheck'
 
 // Requirement 7.5 (task 18.1): the object references of a script that parses
@@ -15,9 +16,14 @@ function parsed(source: string): Program {
 }
 
 describe('referencedObjects at the nesting limit', () => {
-  it.each(deepScripts(64).map((script) => [script.label, script.source]))('walks %s without throwing', (_label, source) => {
-    expect(referencedObjects(parsed(source))).toEqual([])
-  })
+  // Task 19.3: with a field as the destination, each script holds exactly one reference.
+  it.each(deepScripts(64).map((script): [string, DeepScript] => [script.label, script]))(
+    'finds the one field of %s, and none when the script names none',
+    (_label, script) => {
+      expect(referencedObjects(parsed(intoField(script)))).toEqual([{ kind: 'field', name: 'x' }])
+      expect(referencedObjects(parsed(script.source))).toEqual([])
+    },
+  )
 
   it('finds a field at the bottom of 64 parentheses and of 64 nested if', () => {
     const deep = parentheses(64).source.replace('(1)', '(field "deep")')
