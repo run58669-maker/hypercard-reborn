@@ -139,6 +139,13 @@ test('a card that sends the stack away is named in a notice and can be opened an
   // The commit moved the stack to card 1, and Next brings it straight back.
   await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
   await expect(page.getByTestId('moved-notice')).toBeVisible()
+  // The button the commit brought works straight away.
+  await page.getByTestId('open-held-2').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 2 of 6')
+  await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'back')
+  await page.getByTestId('card-prev').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+  await expect(page.getByTestId('moved-notice')).toBeHidden()
   await page.getByTestId('card-next').click()
   await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
   await expect(page.getByTestId('open-held-2')).toHaveText('Card 2: Counter')

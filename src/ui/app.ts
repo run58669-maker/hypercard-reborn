@@ -32,7 +32,7 @@ export interface App {
 
 /** The text in front of the buttons of the notice (requirement 7.8). */
 export const MOVED_NOTICE =
-  'An openCard script sent the stack on to this card. To change that script, open its card without running openCard: '
+  'A script moved the stack here when a card opened. To change such a script, open its card without running its openCard handler: '
 
 export function createApp(root: HTMLElement, deps: AppDeps): App {
   const name = el('h2', { class: 'card-name', testid: 'card-name' })

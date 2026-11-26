@@ -481,12 +481,15 @@ Such a script is legal and may be what its author wants, so the move is still pe
   which can be flipped as it is (so a self-loop stopped by §5.6 gets no notice). The
   buttons are `data-testid="open-held-<n>"`, labelled `Card <n>: <name>`.
 - Pressing such a button shows that card **held**: `CardRuntime.hold(card, mount)`
-  mounts it like `run` (objects rendered, buttons live, parse errors reported as in
-  §5.6) and does not send `openCard`. The status line reads `HELD_MESSAGE`, and the card
+  mounts it like `run` (objects rendered, buttons live) and does not send `openCard`.
+  A stored script that does not parse is reported as in §5.6 instead: no objects, the
+  stored-script message, and the editor on the back. The status line reads `HELD_MESSAGE`, and the card
   is shown on its back, where the script is. Holding is a user action: it starts a new
   chain and hides the notice.
-- A held card is an ordinary mounted card. Commit re-runs it (§8); if the new script
-  still sends the stack on, the stack moves and the notice names the card again. Next
+- A held card is an ordinary mounted card. Committing a changed script that parses
+  re-runs it (§8; a Commit of the unchanged draft does nothing); if the new script
+  still sends the stack on, the stack moves and the notice is shown again, without the
+  card left showing. Next
   and Previous work from it, which is how the cards behind it are reached.
 
 The other design considered was a global "pause scripts" switch that makes Previous and

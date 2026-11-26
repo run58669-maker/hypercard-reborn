@@ -183,6 +183,23 @@ describe('CardRuntime', () => {
     expect(q('status-line')?.textContent).toBe('Runtime error in mouseUp, line 3: field "nope" does not exist')
   })
 
+  it('forgets the request of a failed mouseUp: the next press, which succeeds without go, does not navigate', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    // The first press fails after go to card 1; it wrote the field first, so the second press takes the other branch.
+    const custom: Card = {
+      ...card('counter'),
+      script:
+        'on mouseUp\n  if field "count" is "again" then\n    put "done" into field "count"\n  else\n    put "again" into field "count"\n    go to card 1\n    put field "nope" into x\n  end if\nend mouseUp\n',
+    }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q('status-line')?.textContent).toBe('Runtime error in mouseUp, line 7: field "nope" does not exist')
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q<HTMLInputElement>('field-count')?.value).toBe('done')
+    expect(q('status-line')?.textContent).toBe('')
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
   it('treats a dialog the browser closed by itself like OK', () => {
     const { runtime, m, q, onNavigate } = setup()
     const custom: Card = { ...card('counter'), script: 'on mouseUp\n  answer "hi"\n  go to card 1\nend mouseUp\n' }

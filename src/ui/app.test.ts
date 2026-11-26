@@ -480,6 +480,22 @@ describe('a script that keeps sending the stack on', () => {
     expect(opened).toHaveLength(4)
   })
 
+  it('names card 1 too when the first card shown sends the stack away, and lets it be repaired', () => {
+    const { app, q, opened, commit } = appWith({ 1: 'on openCard\n  go to card 2\nend openCard' })
+    app.go(1)
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('moved-notice')?.textContent).toBe(`${MOVED_NOTICE}Card 1: Hello`)
+
+    q<HTMLButtonElement>('open-held-1')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('card')?.dataset['face']).toBe('back')
+    expect(opened).toEqual(['hello', 'counter'])
+    commit(FIXED)
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q('moved-notice')?.hidden).toBe(true)
+  })
+
   it('names a card whose openCard sends the stack away, and opens it without running openCard', () => {
     const away = 'on openCard\n  go to card 1\nend openCard'
     const { app, q, opened, commit } = appWith({ 2: away })

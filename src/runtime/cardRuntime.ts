@@ -70,7 +70,7 @@ export const NAVIGATION_LOOP_MESSAGE =
 
 /** Status line text of a card that `hold` mounted (requirement 7.8). */
 export const HELD_MESSAGE =
-  'This card was opened without running its openCard handler. Commit a script on the back to run it.'
+  'This card was opened without running its openCard handler. Change the script and press Commit to run it.'
 
 export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
   const mounted = new Map<string, Mounted>()
