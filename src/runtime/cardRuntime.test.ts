@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RunResult } from '../interpreter'
 import { seedCards } from '../store'
 import type { Card } from '../store'
-import { createCardRuntime, MAX_SCRIPTED_MOVES, NAVIGATION_LOOP_MESSAGE, type CardMount, type CardRuntime } from './cardRuntime'
+import { createCardRuntime, HELD_MESSAGE, MAX_SCRIPTED_MOVES, NAVIGATION_LOOP_MESSAGE, type CardMount, type CardRuntime } from './cardRuntime'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -75,7 +75,42 @@ describe('CardRuntime', () => {
     expect(m.root.querySelector('[data-testid="answer-dialog"]')).toBeNull()
     expect(runtime.dialogOpen()).toBe(false)
     expect(onNavigate).toHaveBeenCalledTimes(1)
-    expect(onNavigate).toHaveBeenCalledWith(2)
+    // A button asked: no openCard has moved the stack on.
+    expect(onNavigate).toHaveBeenCalledWith(2, [])
+  })
+
+  it('tells onNavigate which cards\' openCard moved the stack on', () => {
+    const { runtime, m, onNavigate } = setup()
+    runtime.run({ ...card('counter'), script: 'on openCard\n  go to card 1\nend openCard\n' }, m)
+    expect(onNavigate).toHaveBeenCalledWith(1, ['counter'])
+  })
+
+  it('hold mounts a card without running openCard: objects and buttons are there, the status line says so', () => {
+    const { runtime, m, q, onNavigate, onResult } = setup()
+    const custom: Card = {
+      ...card('counter'),
+      script: 'on openCard\n  go to card 1\nend openCard\n\non mouseUp\n  put "pressed" into field "count"\nend mouseUp\n',
+    }
+    runtime.hold(custom, m)
+    expect(onResult).not.toHaveBeenCalled()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe(HELD_MESSAGE)
+    expect(runtime.currentProgram('counter')?.source).toBe(custom.script)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('pressed')
+
+    // A commit re-runs it like any mounted card.
+    runtime.rerun({ ...custom, script: 'on openCard\n  put "ran" into field "count"\nend openCard\n' })
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('ran')
+    expect(q('status-line')?.textContent).toBe('')
+  })
+
+  it('hold keeps the stored-script message of a script that does not parse, and a re-run repairs it', () => {
+    const { runtime, m, q } = setup()
+    runtime.hold({ ...card('hello'), script: 'on openCard\n  put\n' }, m)
+    expect(q('status-line')?.textContent).toContain('Stored script does not parse')
+    runtime.rerun({ ...card('hello'), script: 'on openCard\n  put "ok" into field "greeting"\nend openCard\n' })
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('ok')
   })
 
   it('closes a dialog on Enter', () => {

@@ -22,8 +22,12 @@ export interface CardMount {
 export interface CardRuntimeOptions {
   /** Number of cards in the stack (for `go to card` range checks). */
   readonly cardCount: () => number
-  /** Called after the last dialog is dismissed when a handler asked to go to card n. */
-  readonly onNavigate: (n: number) => void
+  /**
+   * Called after the last dialog is dismissed when a handler asked to go to card n.
+   * `sentOnBy` holds the ids of the cards whose `openCard` has moved the stack on
+   * since the last user action, in order; it is empty when a button asked (§5.7).
+   */
+  readonly onNavigate: (n: number, sentOnBy: readonly string[]) => void
   /** Called after every handler run with its result, for status mirrors. */
   readonly onResult?: (id: string, handler: HandlerName, result: RunResult) => void
   readonly now?: () => Date
@@ -32,6 +36,12 @@ export interface CardRuntimeOptions {
 export interface CardRuntime {
   /** Mounts the card and runs it: live state from `objects`, then openCard. */
   run(card: Card, mount: CardMount): RunResult
+  /**
+   * Mounts the card without sending `openCard` (§5.7): its objects show and its
+   * buttons work, and the status line says that `openCard` did not run. For a
+   * card whose `openCard` sends the stack away before it can be flipped.
+   */
+  hold(card: Card, mount: CardMount): void
   /** Re-runs an already mounted card from a fresh snapshot: tear down live state, re-seed, openCard. */
   rerun(card: Card): RunResult
   /** The Program the mounted card runs; `source === card.script`. */
@@ -57,6 +67,10 @@ export const MAX_SCRIPTED_MOVES = 16
 /** Status line text when the runtime drops an `openCard` handler's `go to card` (requirement 7.1). */
 export const NAVIGATION_LOOP_MESSAGE =
   'Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.'
+
+/** Status line text of a card that `hold` mounted (requirement 7.8). */
+export const HELD_MESSAGE =
+  'This card was opened without running its openCard handler. Commit a script on the back to run it.'
 
 export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
   const mounted = new Map<string, Mounted>()
@@ -118,7 +132,7 @@ export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
     // A depth and not a flag: the card shown by onNavigate may navigate in turn.
     scriptedDepth += 1
     try {
-      options.onNavigate(n)
+      options.onNavigate(n, [...movedOn])
     } finally {
       scriptedDepth -= 1
     }
@@ -228,6 +242,14 @@ export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
       const entry = mountCard(card, mount)
       if (!('host' in entry)) return entry
       return send(entry, 'openCard', '')
+    },
+
+    hold(card, mount) {
+      userAction()
+      unmount(card.id)
+      const entry = mountCard(card, mount)
+      // A script that does not parse keeps its own message (requirement 7.7).
+      if ('host' in entry) mount.statusLine.textContent = HELD_MESSAGE
     },
 
     rerun(card) {

@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCardRuntime } from '../runtime'
+import { createCardRuntime, HELD_MESSAGE } from '../runtime'
 import { createCardStore, seedCards } from '../store'
-import { createApp } from './app'
+import { createApp, MOVED_NOTICE } from './app'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -379,7 +379,7 @@ function appWith(scripts: Record<number, string>) {
   const opened: string[] = []
   const runtime = createCardRuntime({
     cardCount: () => store.getCards().length,
-    onNavigate: (n) => { app.go(n) },
+    onNavigate: (n, sentOnBy) => { app.go(n, sentOnBy) },
     onResult: (id, handler) => {
       if (handler !== 'openCard') return
       opened.push(id)
@@ -478,6 +478,76 @@ describe('a script that keeps sending the stack on', () => {
     expect(q('status-line')?.textContent).toBe('')
     expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
     expect(opened).toHaveLength(4)
+  })
+
+  it('names a card whose openCard sends the stack away, and opens it without running openCard', () => {
+    const away = 'on openCard\n  go to card 1\nend openCard'
+    const { app, q, opened, commit } = appWith({ 2: away })
+    app.go(1)
+    expect(q('moved-notice')?.hidden).toBe(true)
+
+    q<HTMLButtonElement>('card-next')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(opened).toEqual(['hello', 'counter', 'hello'])
+    const notice = q('moved-notice')
+    expect(notice?.hidden).toBe(false)
+    expect(notice?.textContent).toBe(`${MOVED_NOTICE}Card 2: Counter`)
+
+    q<HTMLButtonElement>('open-held-2')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('card-name')?.textContent).toBe('Counter')
+    // openCard did not run, the card shows its back, its objects are there, and it says why.
+    expect(opened).toEqual(['hello', 'counter', 'hello'])
+    expect(q('card')?.dataset['face']).toBe('back')
+    expect(q('stored-script')?.textContent).toBe(away)
+    expect(q('field-count')).not.toBeNull()
+    expect(q('status-line')?.textContent).toBe(HELD_MESSAGE)
+    expect(q('moved-notice')?.hidden).toBe(true)
+
+    // From here the cards behind it can be reached.
+    q<HTMLButtonElement>('card-next')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 3 of 6')
+    q<HTMLButtonElement>('card-prev')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+
+    // And the script can be changed: the card then runs and stays.
+    q<HTMLButtonElement>('open-held-2')?.click()
+    commit('on openCard\n  put "7" into field "count"\nend openCard')
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('7')
+    expect(q('moved-notice')?.hidden).toBe(true)
+  })
+
+  it('names every card of a chain except the one that is showing, and forgets them when the user moves', () => {
+    const { app, q } = appWith({
+      2: 'on openCard\n  go to card 3\nend openCard',
+      3: 'on openCard\n  answer "bye"\n  go to card 1\nend openCard',
+    })
+    app.go(1)
+    q<HTMLButtonElement>('card-next')?.click()
+    // Card 3 is showing behind its dialog; card 2 sent the stack there.
+    expect(q('card-position')?.textContent).toBe('Card 3 of 6')
+    expect(q('moved-notice')?.textContent).toBe(`${MOVED_NOTICE}Card 2: Counter`)
+    q<HTMLButtonElement>('answer-ok')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('open-held-2')).not.toBeNull()
+    expect(q('open-held-3')).not.toBeNull()
+    expect(q('open-held-1')).toBeNull()
+
+    // A card that stops its own loop is showing and can be flipped: no button for it.
+    const loop = appWith({ 1: SELF_LOOP })
+    loop.app.go(1)
+    expect(loop.q('status-line')?.textContent).toBe(STOPPED)
+    expect(loop.q('moved-notice')?.hidden).toBe(true)
+  })
+
+  it('shows no notice for a move a button asked for', () => {
+    const { app, q } = appWith({ 2: 'on mouseUp\n  go to card 3\nend mouseUp' })
+    app.go(2)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 3 of 6')
+    expect(q('moved-notice')?.hidden).toBe(true)
   })
 
   it('runs a card whose stored script did not parse once a script that parses is committed on its back', () => {

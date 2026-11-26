@@ -451,6 +451,41 @@ because nothing runs. The runtime still remembers its `CardMount`, so that the `
 that follows a successful commit on its back can mount the card and run it. `unmount()`
 forgets it.
 
+### 5.7 Opening a card that sends the stack away (requirement 7.8)
+
+§5.6 stops a chain that repeats. It does not help with a card whose `openCard` moves the
+stack on once: `go to card 1` in card 2's `openCard`. Every way of showing card 2 then
+ends on card 1, no card asks twice, nothing stops, and card 2 can never be flipped. With
+Previous and Next as the only navigation, cards 3 to 6 are cut off as well. A second
+review (GPT, reading the code) found this.
+
+Such a script is legal and may be what its author wants, so the move is still performed
+(requirement 7.3). What the design adds is a way to open the card without running it:
+
+- `onNavigate(n, sentOnBy)` gets a second argument: the ids in `movedOn`, in order, at
+  the moment of the move. It is empty for a move a button asked for.
+- The app shell keeps `<p data-testid="moved-notice">` between the introduction and the
+  card. `app.go(n)` called by the user (Previous, Next, arrow keys) passes no list and
+  hides it. `app.go(n, sentOnBy)` called through `onNavigate` shows it with the text
+  `MOVED_NOTICE` and one button per card in the list, except the card that is showing,
+  which can be flipped as it is (so a self-loop stopped by §5.6 gets no notice). The
+  buttons are `data-testid="open-held-<n>"`, labelled `Card <n>: <name>`.
+- Pressing such a button shows that card **held**: `CardRuntime.hold(card, mount)`
+  mounts it like `run` (objects rendered, buttons live, parse errors reported as in
+  §5.6) and does not send `openCard`. The status line reads `HELD_MESSAGE`, and the card
+  is shown on its back, where the script is. Holding is a user action: it starts a new
+  chain and hides the notice.
+- A held card is an ordinary mounted card. Commit re-runs it (§8); if the new script
+  still sends the stack on, the stack moves and the notice names the card again. Next
+  and Previous work from it, which is how the cards behind it are reached.
+
+The other design considered was a global "pause scripts" switch that makes Previous and
+Next stop sending `openCard` (the reviewer's proposal). It was not taken: the person has
+to find the switch before they know why the stack jumped, a commit made while paused
+either breaks requirement 3.2 or jumps anyway, and a forgotten switch leaves every card
+looking broken. The notice appears at the moment of the jump, on the card the person
+landed on, and names the card that did it.
+
 ## 6. Compile-once pipeline
 
 ### 6.1 Flow and types
