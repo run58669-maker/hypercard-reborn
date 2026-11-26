@@ -15,7 +15,16 @@ export interface EditorDeps {
   readonly now?: () => Date
 }
 
-export type CommitOutcome = { readonly kind: 'committed' } | { readonly kind: 'unchanged' } | { readonly kind: 'rejected'; readonly error: ParseError }
+export type CommitOutcome =
+  | { readonly kind: 'committed' }
+  | { readonly kind: 'unchanged' }
+  | { readonly kind: 'rejected'; readonly error: ParseError }
+  /** Storage refused the write; the stored script and the draft are as they were (requirement 8.2). */
+  | { readonly kind: 'not-saved' }
+
+/** Shown next to the editor when storage refuses a Commit (design.md §9). */
+export const COMMIT_NOT_SAVED =
+  "The script was not saved: the browser's storage is full or unavailable. The card still runs the stored script, and your draft is kept here."
 
 export interface Editor {
   readonly element: HTMLElement
@@ -41,11 +50,19 @@ export function createEditor(deps: EditorDeps): Editor {
   })
   const commitButton = el('button', { testid: 'commit-script', text: 'Commit', title: 'Commit the draft (Ctrl+Enter or Cmd+Enter)' })
   const panel = createErrorPanel('parse-error', 'Parse error')
+  const notSaved = el('p', { class: 'error-panel', testid: 'commit-error', hidden: true })
+  notSaved.setAttribute('role', 'alert')
   const element = el('div', { class: 'editor' }, [
     el('div', { class: 'editor-heading' }, [el('h3', { text: 'Draft' }), commitButton]),
     textarea,
     panel.element,
+    notSaved,
   ])
+
+  function clearNotSaved(): void {
+    notSaved.textContent = ''
+    notSaved.hidden = true
+  }
 
   function selectLine(line: number): void {
     const lines = textarea.value.split(/\r\n|\n/)
@@ -68,10 +85,12 @@ export function createEditor(deps: EditorDeps): Editor {
     setDraft(script) {
       textarea.value = script
       panel.clear()
+      clearNotSaved()
       delete textarea.dataset['errorLine']
     },
     commit() {
       const draft = textarea.value
+      clearNotSaved()
       if (draft === stored()) {
         panel.clear()
         delete textarea.dataset['errorLine']
@@ -82,6 +101,13 @@ export function createEditor(deps: EditorDeps): Editor {
         panel.clear()
         delete textarea.dataset['errorLine']
         return { kind: 'committed' }
+      }
+      if (result.reason === 'storage') {
+        panel.clear()
+        delete textarea.dataset['errorLine']
+        notSaved.textContent = COMMIT_NOT_SAVED
+        notSaved.hidden = false
+        return { kind: 'not-saved' }
       }
       panel.show(result.error)
       selectLine(result.error.line)

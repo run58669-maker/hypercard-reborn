@@ -113,15 +113,18 @@ interface CardStore {
   getCards(): readonly Card[];                              // sorted by number
   getCard(id: string): Card | undefined;
   getCardByNumber(n: number): Card | undefined;
-  saveDescription(id: string, description: string): void;   // never touches script
+  saveDescription(id: string, description: string): WriteResult;   // never touches script
   commitScript(id: string, script: string, origin: ScriptOrigin): CommitResult;
-  resetToSeed(): void;                                      // replaces every card with the bundled six
+  resetToSeed(): WriteResult;                               // replaces every card with the bundled six
   subscribe(listener: (change: StoreChange) => void): () => void;
 }
 
 type CommitResult =
   | { ok: true; card: Card }
-  | { ok: false; error: ParseError; card: Card };            // card is unchanged
+  | { ok: false; reason: 'parse'; error: ParseError; card: Card }   // card is unchanged
+  | { ok: false; reason: 'storage'; card: Card };                    // card is unchanged (requirement 8.1)
+
+type WriteResult = { ok: true } | { ok: false; reason: 'storage' };  // on failure every card is unchanged
 
 type StoreChange =
   | { kind: 'description'; id: string }
@@ -129,7 +132,7 @@ type StoreChange =
   | { kind: 'reset' };
 ```
 
-`commitScript` runs `parse(script)` first and returns `{ok:false}` without mutating
+`commitScript` runs `parse(script)` first and returns `{ok:false, reason:'parse'}` without mutating
 anything if it fails. This is the mechanism behind requirements 1.4 and 3.4: the
 "previous script" is kept simply because nothing replaced it. On success it sets
 `updatedAt` and `scriptOrigin`, persists, and notifies subscribers once.
@@ -138,6 +141,22 @@ A change is delivered to the subscribers the store had when the change was made:
 `notify` iterates a copy of the set and skips a subscriber that has unsubscribed in the
 meantime. A subscriber added while a change is being delivered gets the next change,
 not this one. §5.6 says why that matters.
+
+**A write that is refused (requirement 8.1).** `localStorage.setItem` throws when the
+quota is used up or the browser denies storage to the page. The store therefore writes
+first and changes its own state second. Each of the three changing calls builds the
+next `Card[]`, hands it to `persist`, and only when `persist` returns does it replace
+its array and notify. When `persist` throws, the store keeps the array it had, notifies
+nobody and returns `{ ok: false, reason: 'storage' }`. Nothing is re-run, because
+nothing was notified. `setItem` either replaces the value or leaves the old one, so
+after a refused write memory and storage still hold the same cards. The store does not
+look at what was thrown: any failure of the write is "not saved". Before this, `replace`
+changed the array and then called `persist`, so the exception left the page showing and
+running a script that storage did not hold. The texts the three callers show are in §9.
+
+Not covered: the write `openCardStore` makes when it seeds an empty or invalid key at
+page load, and the settings panel's own keys (`hcr.compileProvider`,
+`hcr.anthropicApiKey`), which do not go through the store.
 
 ### 3.2 Seeded cards
 
@@ -564,6 +583,19 @@ sequenceDiagram
 
 "Exactly once" (requirement 1.1) is guaranteed by three things:
 
+**A Save that answers late (requirement 8.5).** The compile is the only `await` between
+`saveDescription` and `commitScript`, and Commit and Reset stay usable while it runs. The
+panel keeps the `Card` snapshot the store holds right after `saveDescription` and, when
+the compile has answered with a script, compares it with the snapshot the store holds
+then. Cards are immutable and every change replaces the object, so the two are the same
+object exactly when nothing has touched the card: a Commit of a changed draft and a
+Reset both replace it. When they differ the panel does not call `commitScript`; it shows
+`SAVE_OVERTAKEN` (§9) in the compile-error block. The provider was still called exactly
+once. A compile that answers with an error is shown as before: it stores nothing, so it
+cannot overwrite anything. After the Save settles the description input shows the
+stored description, as after every Save: the one this Save stored when a Commit came in
+between, the bundled one after a Reset.
+
 1. `compile` makes a single provider call with no retry loop of its own. The Anthropic
    SDK's transport-level retries (`maxRetries`) are set to `0` so a network hiccup is
    reported, not silently re-sent.
@@ -855,8 +887,8 @@ change here first.
 | Status line, message box | `status-line`, `message-box` |
 | Answer dialog and its OK | `answer-dialog`, `answer-ok` |
 | Description panel | `description-input`, `save-description`, `chip-<id>`, `compile-error`, `compile-candidate`, `stale-notice`, `script-origin` |
-| Editor | `script-editor`, `commit-script`, `parse-error`, `stored-script` |
-| Settings | `settings-panel`, `provider-canned`, `provider-anthropic`, `api-key`, `forget-key`, `reset-cards`, `settings-close` |
+| Editor | `script-editor`, `commit-script`, `parse-error`, `commit-error`, `stored-script` |
+| Settings | `settings-panel`, `provider-canned`, `provider-anthropic`, `api-key`, `forget-key`, `reset-cards`, `reset-error`, `settings-close` |
 
 ### 7.4 How requirement 2.2 (byte identity) is guaranteed
 
@@ -927,6 +959,11 @@ sequenceDiagram
 - Re-run semantics: the runtime discards live field text and visibility, re-seeds them
   from `card.objects`, parses `card.script` and sends `openCard`. The front face updates
   even while the card is still showing its back face, so flipping back shows the result.
+- A Commit the store reports as not saved (`reason: 'storage'`, §3.1) shows
+  `COMMIT_NOT_SAVED` (§9) in `<p data-testid="commit-error" role="alert">` under the
+  parse-error panel, clears the parse-error panel and leaves the draft alone.
+  `Editor.commit()` returns `{ kind: 'not-saved' }`. The message goes with the next
+  Commit, whatever its outcome, and with `setDraft`.
 - The draft survives a flip to the front and back again; it is discarded when the card
   is navigated away from or when a Save compiles a new script (the draft is then reset
   to the new stored script).
@@ -939,6 +976,11 @@ sequenceDiagram
 | Compiled output parses but names an object the card lacks (6.1) | Back face, description panel: the missing objects and the card's own objects, plus the rejected candidate in the read-only block | Description (already saved); previous script untouched | Previous script, uninterrupted |
 | Provider error (auth, network, rate limit, refusal, truncated, no canned match, api, unknown) | Same panel, one line, with the next step | Description; previous script untouched | Previous script |
 | Edited script fails to parse (3.4) | Back face, next to the editor; offending line highlighted; the draft is kept so the author can keep editing | Nothing | Last valid script, uninterrupted |
+| Commit refused by storage (8.2) | Back face, `commit-error` under the editor; the draft is kept | Nothing | The stored script, not re-run |
+| Save: the description is refused by storage (8.3) | Back face, description panel (`compile-error`); the typed description stays in the input; the provider is not called | Nothing | Previous script |
+| Save: the compiled script is refused by storage (8.3) | Same panel | Description (already saved); previous script untouched | Previous script |
+| Reset refused by storage (8.4) | Settings panel, `reset-error` beside the Reset button | Nothing | Every card as it was, not re-run |
+| Save overtaken by a Commit or a Reset (8.5, §6.1) | Back face, description panel (`compile-error`) | Description, unless the Reset replaced it; the script committed or restored in the meantime | That script |
 | Runtime error during a handler | Front-face status line (and mirrored on the back face) | Nothing | Handler aborted at the failing statement; next event runs again |
 | Card whose script is the empty string | As 1.4 | Script stays the empty string | The empty script, which parses and does nothing |
 
@@ -959,6 +1001,16 @@ Compile error messages (shown verbatim):
 | `truncated` | `The model's answer was cut off. Shorten the description and press Save again.` |
 | `api` | `Anthropic returned an error (HTTP <status>). Press Save to try again.` |
 | `unknown` | `Compiling failed for an unexpected reason: <error message>.` |
+
+Messages for requirement 8 (shown verbatim; each is an exported constant of the module that shows it):
+
+| constant | module | message |
+|---|---|---|
+| `COMMIT_NOT_SAVED` | `src/ui/editor.ts` | `The script was not saved: the browser's storage is full or unavailable. The card still runs the stored script, and your draft is kept here.` |
+| `DESCRIPTION_NOT_SAVED` | `src/ui/descriptionPanel.ts` | `The description was not saved: the browser's storage is full or unavailable. Nothing was compiled, and your text is kept here.` |
+| `SCRIPT_NOT_SAVED` | `src/ui/descriptionPanel.ts` | `The compiled script was not saved: the browser's storage is full or unavailable. The previous script is still running.` |
+| `RESET_NOT_SAVED` | `src/ui/settings.ts` | `The cards were not reset: the browser's storage is full or unavailable.` |
+| `SAVE_OVERTAKEN` | `src/ui/descriptionPanel.ts` | `The card changed while this description was compiling, so the compiled script was not stored. Press Save to compile it again.` |
 
 ## 10. Runtime "no LLM" guarantee (requirements 1.2, 1.3, 4.3)
 

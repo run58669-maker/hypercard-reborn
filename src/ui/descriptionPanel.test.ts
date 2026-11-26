@@ -6,7 +6,7 @@ import { createCardRuntime } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createCardView } from './cardView'
 import { lazyCompiler, type Compiler } from './compiler'
-import { STALE_NOTICE, unfitChipTitle } from './descriptionPanel'
+import { DESCRIPTION_NOT_SAVED, SCRIPT_NOT_SAVED, STALE_NOTICE, unfitChipTitle } from './descriptionPanel'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 const counter = EXAMPLES[1]
@@ -39,8 +39,15 @@ const flush = async (): Promise<void> => {
   for (let i = 0; i < 5; i += 1) await Promise.resolve()
 }
 
-function setup(compiler: Compiler, id = 'hello', provider: 'canned' | 'anthropic' = 'canned') {
-  const store = createCardStore({ initial: seedCards(NOW), now: () => NOW })
+/** `storage.full` makes the store's write throw, as localStorage does when its quota is used up. */
+function setup(compiler: Compiler, id = 'hello', provider: 'canned' | 'anthropic' = 'canned', storage = { full: false }) {
+  const store = createCardStore({
+    initial: seedCards(NOW),
+    now: () => NOW,
+    persist: () => {
+      if (storage.full) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    },
+  })
   const runtime = createCardRuntime({ cardCount: () => 6, onNavigate: () => undefined, now: () => NOW })
   const card = store.getCard(id)
   if (card === undefined) throw new Error(`no card ${id}`)
@@ -254,6 +261,71 @@ describe('description panel', () => {
     await flush()
     expect(q('stale-notice')?.hidden).toBe(false)
     expect(q('stale-notice')?.textContent).toBe(STALE_NOTICE)
+  })
+
+  // Task 19.1, requirement 8.3.
+  it('a description that storage refuses: the message, the typed text kept, no compile call', async () => {
+    const storage = { full: true }
+    const { compiler, spy } = fakeCompiler((d) => ok(d, ''))
+    const { q, input, save, store } = setup(compiler, 'hello', 'canned', storage)
+    await flush()
+    const before = store.getCard('hello')
+    input.value = 'Typed and not yet stored.'
+    save.click()
+    await flush()
+    expect(q('compile-error')?.hidden).toBe(false)
+    expect(q('compile-error')?.textContent).toBe(DESCRIPTION_NOT_SAVED)
+    expect(DESCRIPTION_NOT_SAVED).toBe(
+      "The description was not saved: the browser's storage is full or unavailable. Nothing was compiled, and your text is kept here.",
+    )
+    expect(q('compile-candidate')).toBeNull()
+    expect(input.value).toBe('Typed and not yet stored.')
+    expect(spy).not.toHaveBeenCalled()
+    expect(store.getCard('hello')).toBe(before)
+    expect(save.disabled).toBe(false)
+    expect(q('compile-status')?.textContent).toBe('')
+
+    // With room again the same press stores the text and compiles it.
+    storage.full = false
+    save.click()
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(store.getCard('hello')?.description).toBe('Typed and not yet stored.')
+    expect(q('compile-error')?.hidden).toBe(true)
+  })
+
+  it('a compiled script that storage refuses: the message, the description stored, the previous script still running', async () => {
+    const storage = { full: false }
+    const edited = 'on openCard\n  put "compiled" into field "greeting"\nend openCard\n'
+    const { compiler, spy } = fakeCompiler((d) => {
+      // The description is in; storage fills up while the compile is under way.
+      storage.full = true
+      return ok(d, edited)
+    })
+    const { q, input, save, store, runtime } = setup(compiler, 'hello', 'canned', storage)
+    await flush()
+    const script = store.getCard('hello')?.script
+    const field = q<HTMLTextAreaElement>('field-greeting')
+    if (field === null) throw new Error('no field')
+    field.value = 'typed on the front'
+    input.value = 'Say compiled.'
+    save.click()
+    await flush()
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(q('compile-error')?.textContent).toBe(SCRIPT_NOT_SAVED)
+    expect(SCRIPT_NOT_SAVED).toBe(
+      "The compiled script was not saved: the browser's storage is full or unavailable. The previous script is still running.",
+    )
+    expect(q('compile-candidate')).toBeNull()
+    expect(store.getCard('hello')?.description).toBe('Say compiled.')
+    expect(input.value).toBe('Say compiled.')
+    expect(store.getCard('hello')?.script).toBe(script)
+    expect(store.getCard('hello')?.scriptOrigin).toEqual({ kind: 'seed' })
+    expect(q('stored-script')?.textContent).toBe(script)
+    expect(q<HTMLTextAreaElement>('script-editor')?.value).toBe(script)
+    expect(runtime.currentProgram('hello')?.source).toBe(script)
+    expect(field.value).toBe('typed on the front')
+    expect(save.disabled).toBe(false)
   })
 
   it('reports a compiler that throws without leaving Save disabled', async () => {

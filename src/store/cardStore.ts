@@ -5,12 +5,16 @@
 import { parse } from '../parser'
 import { loadCards, saveCards, type StorageLike } from './persistence'
 import { seedCards } from './seed'
-import type { Card, CardStore, CommitResult, StoreChange } from './types'
+import type { Card, CardStore, CommitResult, StoreChange, WriteResult } from './types'
 
 export interface CardStoreOptions {
   /** The cards to start from, in stack order. */
   readonly initial: readonly Card[]
-  /** Called after every successful change with the full, sorted array. */
+  /**
+   * Called for every change with the full, sorted array the change would leave,
+   * before the store takes it over. If it throws, the change is not made
+   * (design.md §3.1, requirement 8.1).
+   */
   readonly persist?: (cards: readonly Card[]) => void
   /** The bundled cards, for `resetToSeed`. Defaults to `initial`. */
   readonly seed?: () => readonly Card[]
@@ -44,9 +48,22 @@ export function createCardStore(options: CardStoreOptions): CardStore {
     return { card, index }
   }
 
-  function replace(index: number, card: Card): void {
-    cards = cards.map((c, i) => (i === index ? card : c))
-    persist(cards)
+  /**
+   * Writes `next` and, only when the write went through, makes it the store's
+   * cards. A refused write leaves `cards` as it was and returns false.
+   */
+  function write(next: Card[]): boolean {
+    try {
+      persist(next)
+    } catch {
+      return false
+    }
+    cards = next
+    return true
+  }
+
+  function replace(index: number, card: Card): boolean {
+    return write(cards.map((c, i) => (i === index ? card : c)))
   }
 
   return {
@@ -54,26 +71,27 @@ export function createCardStore(options: CardStoreOptions): CardStore {
     getCard: (id) => cards.find((c) => c.id === id),
     getCardByNumber: (n) => cards.find((c) => c.number === n),
 
-    saveDescription(id, description) {
+    saveDescription(id, description): WriteResult {
       const { card, index } = require(id)
-      replace(index, { ...card, description, updatedAt: now().toISOString() })
+      if (!replace(index, { ...card, description, updatedAt: now().toISOString() })) return { ok: false, reason: 'storage' }
       notify({ kind: 'description', id })
+      return { ok: true }
     },
 
     commitScript(id, script, origin): CommitResult {
       const { card, index } = require(id)
       const result = parse(script)
-      if (!result.ok) return { ok: false, error: result.error, card }
+      if (!result.ok) return { ok: false, reason: 'parse', error: result.error, card }
       const updated: Card = { ...card, script, scriptOrigin: origin, updatedAt: now().toISOString() }
-      replace(index, updated)
+      if (!replace(index, updated)) return { ok: false, reason: 'storage', card }
       notify({ kind: 'script', id })
       return { ok: true, card: updated }
     },
 
-    resetToSeed() {
-      cards = sorted(seed())
-      persist(cards)
+    resetToSeed(): WriteResult {
+      if (!write(sorted(seed()))) return { ok: false, reason: 'storage' }
       notify({ kind: 'reset' })
+      return { ok: true }
     },
 
     subscribe(listener) {

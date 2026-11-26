@@ -52,18 +52,23 @@ export interface CardStore {
   getCard(id: string): Card | undefined
   getCardByNumber(n: number): Card | undefined
   /** Never touches `script`. */
-  saveDescription(id: string, description: string): void
+  saveDescription(id: string, description: string): WriteResult
   /** The only code path that writes `script`; refuses anything that does not parse. */
   commitScript(id: string, script: string, origin: ScriptOrigin): CommitResult
   /** Replaces every card with the bundled six. */
-  resetToSeed(): void
+  resetToSeed(): WriteResult
   subscribe(listener: (change: StoreChange) => void): () => void
 }
 
 export type CommitResult =
   | { readonly ok: true; readonly card: Card }
-  /** `card` is unchanged. */
-  | { readonly ok: false; readonly error: ParseError; readonly card: Card }
+  /** The script does not parse. `card` is unchanged. */
+  | { readonly ok: false; readonly reason: 'parse'; readonly error: ParseError; readonly card: Card }
+  /** The write to storage was refused (requirement 8.1). `card` is unchanged. */
+  | { readonly ok: false; readonly reason: 'storage'; readonly card: Card }
+
+/** The outcome of a change that has nothing to parse. On failure every card is unchanged. */
+export type WriteResult = { readonly ok: true } | { readonly ok: false; readonly reason: 'storage' }
 
 export type StoreChange =
   | { readonly kind: 'description'; readonly id: string }

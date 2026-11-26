@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { createCardStore, seedCards, type StorageLike } from '../store'
-import { API_KEY_KEY, PROVIDER_KEY, RESET_CONFIRMATION, createSettings, readProvider } from './settings'
+import { API_KEY_KEY, PROVIDER_KEY, RESET_CONFIRMATION, RESET_NOT_SAVED, createSettings, readProvider } from './settings'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -19,9 +19,16 @@ function fakeStorage(entries: Record<string, string> = {}): StorageLike & { map:
   }
 }
 
-function setup(entries: Record<string, string> = {}, confirmAnswer = true) {
+/** `cards.full` makes the store's write throw, as localStorage does when its quota is used up. */
+function setup(entries: Record<string, string> = {}, confirmAnswer = true, cards = { full: false }) {
   const storage = fakeStorage(entries)
-  const store = createCardStore({ initial: seedCards(NOW), now: () => NOW })
+  const store = createCardStore({
+    initial: seedCards(NOW),
+    now: () => NOW,
+    persist: () => {
+      if (cards.full) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    },
+  })
   const confirm = vi.fn(() => confirmAnswer)
   const onProviderChange = vi.fn()
   const settings = createSettings({ store, storage, confirm, onProviderChange })
@@ -109,6 +116,33 @@ describe('createSettings', () => {
     expect(confirm).toHaveBeenCalledWith(RESET_CONFIRMATION)
     expect(store.getCard('hello')?.script).toBe(seedCards(NOW)[0]?.script)
     expect(store.getCard('hello')?.scriptOrigin).toEqual({ kind: 'seed' })
+  })
+
+  // Task 19.1, requirement 8.4.
+  it('says so beside the button when storage refuses the reset, and the cards stay', () => {
+    const cards = { full: false }
+    const { q, store } = setup({}, true, cards)
+    expect(q('reset-error')?.hidden).toBe(true)
+    store.commitScript('hello', '', { kind: 'edited', at: NOW.toISOString() })
+    const before = store.getCards()
+    const changes: string[] = []
+    store.subscribe((change) => changes.push(change.kind))
+    cards.full = true
+    q<HTMLButtonElement>('reset-cards')?.click()
+    expect(q('reset-error')?.hidden).toBe(false)
+    expect(q('reset-error')?.textContent).toBe(RESET_NOT_SAVED)
+    expect(RESET_NOT_SAVED).toBe("The cards were not reset: the browser's storage is full or unavailable.")
+    expect(q('reset-error')?.getAttribute('role')).toBe('alert')
+    expect(q('reset-error')?.parentElement).toBe(q('reset-cards')?.parentElement)
+    expect(store.getCards()).toBe(before)
+    expect(changes).toEqual([])
+
+    cards.full = false
+    q<HTMLButtonElement>('reset-cards')?.click()
+    expect(q('reset-error')?.hidden).toBe(true)
+    expect(q('reset-error')?.textContent).toBe('')
+    expect(store.getCard('hello')?.scriptOrigin).toEqual({ kind: 'seed' })
+    expect(changes).toEqual(['reset'])
   })
 
   it('does not reset when the confirmation is declined', () => {

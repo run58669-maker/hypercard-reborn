@@ -109,3 +109,19 @@ A **user action** below is anything the person does that makes a card run or a h
 Criterion 7.9 was added on 2026-11-26 after the same reviews. The statement budget counts statements, and one statement may hold an expression of thousands of nodes: `repeat 9999 times` around such a statement stayed inside the budget and kept the page busy for a long time, again at every opening of the card. The 64 KiB limit was checked only where `&`, `&&`, arithmetic and `put` produce a value, so a literal handed to `answer`, `get` or `set name`, or a long field read, passed it.
 
 Criterion 7.8 was added on 2026-11-26 after the reviews of the implementation of 7.1 to 7.7. One reviewer (another model) showed that a card whose `openCard` moves the stack on once never trips 7.1 and could not be opened at all, which also cut off the cards behind it.
+
+## Requirement 8: A change that could not be stored is not shown as made
+
+**User story:** As a card author, I want a Commit, a Save or a Reset that the browser could not store to leave the card as it was and to say so, and a Save that answers late not to undo what I did while it was compiling, so that the page never shows a script that a reload would take away.
+
+Added 2026-11-27. Task 18.6 listed both cases as open. With the browser's storage full, a Commit changed the card in memory, re-ran it and showed the new script as stored, while the write to `localStorage` had thrown: after a reload the old script was back. And a Save whose compile answered after the author had committed a script by hand, or reset the stack, stored the compiled script over it. Tasks 19.x implement it.
+
+A write is **refused** below when `localStorage.setItem` throws for the cards key, whatever the reason: the quota is used up, or the browser denies storage to the page.
+
+### Acceptance criteria
+
+1. IF the write is refused when a script is committed, a description is saved or the stack is reset, THEN THE system SHALL leave every card as it was before the action, in memory as in storage, SHALL NOT re-run any card, and SHALL report the action to its caller as not saved.
+2. WHEN a Commit is reported as not saved, THE system SHALL show `The script was not saved: the browser's storage is full or unavailable. The card still runs the stored script, and your draft is kept here.` next to the editor and SHALL keep the draft as typed.
+3. WHEN the description of a Save is reported as not saved, THE system SHALL show `The description was not saved: the browser's storage is full or unavailable. Nothing was compiled, and your text is kept here.` in the description panel, SHALL keep the description as typed and SHALL NOT call the compile provider. WHEN the description was stored and the script compiled from it is reported as not saved, THE system SHALL show `The compiled script was not saved: the browser's storage is full or unavailable. The previous script is still running.` there.
+4. WHEN a Reset is reported as not saved, THE system SHALL show `The cards were not reset: the browser's storage is full or unavailable.` beside the Reset button.
+5. IF a script is committed on a card, or the stack is reset, after a Save of that card started compiling and before the compile answers, THEN THE system SHALL NOT store the script that Save compiled, SHALL leave the script committed or restored in the meantime stored and running, and SHALL show `The card changed while this description was compiling, so the compiled script was not stored. Press Save to compile it again.` in the description panel.
