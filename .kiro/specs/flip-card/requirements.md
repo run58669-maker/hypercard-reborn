@@ -83,3 +83,19 @@ Added 2026-11-24 after a review found that saving the Counter description on the
 2. WHEN the system decides whether a card has an object, THE system SHALL match kind and name exactly as the runtime does when the script runs, so a script accepted here cannot fail at run time with `does not exist`.
 3. WHILE the offline provider is selected, THE system SHALL enable the one-click chip of a bundled description only if its bundled script passes criterion 1 on the card being shown, and SHALL show every other chip disabled with a title naming the card that description belongs to.
 4. WHEN the system compiles a description with the Anthropic provider, THE request SHALL list the kind and name of every object on the card.
+
+## Requirement 7: A script cannot trap the stack
+
+**User story:** As someone trying the stack, I want a script that keeps sending the stack from card to card, or one nested absurdly deep, to be stopped with a message, so that a bad script never leaves me with a page I can neither use nor repair.
+
+Added 2026-11-26. A review read the code and suspected two traps; both were then reproduced. With `on openCard`, `go to card 1`, `end openCard` stored on card 1, showing card 1 threw `RangeError: Maximum call stack size exceeded`, and so did two cards that send the stack to each other. Scripts are persisted, so a reload hit the same error. `parse` threw the same error for parentheses nested 1000 deep, for 20000 unary minus signs and for 3000 nested `if` blocks, although `design.md` §4.1 says it never throws. Tasks 18.x implement it.
+
+A **user action** below is anything the person does that makes a card run or a handler fire: the first card shown on page load, Previous and Next, the arrow keys, a click on a card button, flipping back to the front, committing a script, saving a description. Pressing OK on an `answer` dialog is not one: the dialog was put there by the script.
+
+### Acceptance criteria
+
+1. IF a card's `openCard` handler asks to go to a card and, since the last user action, the same card's `openCard` has already asked once, THEN THE system SHALL not move, SHALL leave that card showing, and SHALL show `Stopped: this card's openCard sent the stack away and the stack came straight back, so it would never settle. Flip the card to fix its script.` in the status line. Nothing in this path throws.
+2. WHILE that message is showing, and equally after a reload with the same scripts stored, THE system SHALL keep Flip, Previous, Next and the script editor working, and WHEN a script that no longer loops is committed THE system SHALL run the card normally and clear the message.
+3. WHEN scripted moves do not come back to a card whose `openCard` already moved the stack on (a button sends the stack to card 2, whose `openCard` sends it on to card 3; or a button on card 1 sends it to card 2, whose `openCard` sends it back to card 1), THE system SHALL perform every move. Each user action starts the count afresh.
+4. IF a script nests more than 64 levels (each `(`, `not`, unary `-`, operator applied in a chain, and enclosing `if` or `repeat` block counts as one level), THEN `parse` SHALL return the parse error `nested too deeply (limit 64)` positioned at the token that would open level 65, and SHALL NOT throw. A script that reaches exactly 64 levels parses.
+5. WHEN a script parses, THE system SHALL be able to run each of its handlers, print it and collect its object references without throwing, however the 64 levels are spent.

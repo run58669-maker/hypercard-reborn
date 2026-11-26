@@ -209,9 +209,44 @@ double quotes, structural positions are bare words.
 | Unknown property in `set` | `expected "visible", "enabled" or "name", found "x"` |
 | Block statement after single-line `then`/`else` | `a single-line if cannot contain "if" or "repeat"` |
 | Statement outside a handler | `expected "on", found "put"` |
+| More than 64 levels of nesting (§4.4) | `nested too deeply (limit 64)` |
 
 Positions: `line` and `column` are those of the offending token (`found Y`); for
 `duplicate handler` they point at the second `on`.
+
+### 4.4 Nesting limit (requirement 7.4, 7.5)
+
+The parser is recursive descent, and the interpreter, the printer and the object check
+(§6.8) all walk the tree recursively. A tree of unbounded depth overflows the JavaScript
+stack in every one of them, and a `RangeError` is not a `Failure`, so `parse` would throw.
+The parser therefore bounds the depth of the tree it builds:
+
+```ts
+export const MAX_NESTING = 64
+```
+
+`Cursor` keeps one counter. `enter(token)` adds one and, if the result is above
+`MAX_NESTING`, fails with `nested too deeply (limit 64)` at `token`; `leave(levels = 1)`
+subtracts. Every place where the tree gets one level deeper pays one level:
+
+| Construct | enter at | leave |
+| --- | --- | --- |
+| `( expression )` | the `(` | after the `)` |
+| `not operand`, `- operand` | the `not` / `-` | after the operand |
+| each operator applied in a left-associative chain (`or`, `and`, comparison, `&`/`&&`, `+`/`-`, `*`/`/`/`div`/`mod`): the new node sits one level above the previous left operand | the operator token | all the levels of the chain together, when the chain's function returns |
+| block `if` (then and else bodies), `repeat` body | the `if` / `repeat` keyword | after `end if` / `end repeat` |
+
+The counter is an upper bound on the depth of the finished tree, so a script that parses
+can be walked by any recursive consumer in at most 64 nested calls per function. Because
+a `Failure` unwinds through `parse`, the counter needs no cleanup on the error path: a
+`Cursor` is used for one parse only.
+
+Any other recursive cycle in `parser.ts` or `expressions.ts` found while implementing
+(task 18.1 lists them by reading the code) pays a level the same way. Loops that do not
+deepen the tree (statements in a block, handlers in a script) pay nothing.
+
+`64` is far above what a card needs (the six bundled scripts stay under 5) and far below
+what any engine's stack holds (about 10 parser frames per level).
 
 ## 5. Interpreter
 
@@ -303,6 +338,56 @@ most one `goToCard` request (the last one wins). After `run` returns, `CardRunti
    card (§7.1), which runs it.
 
 So the quiz card shows "Correct!", and only when OK is pressed does card 2 open.
+
+### 5.6 Scripted navigation chains (requirement 7.1 to 7.3)
+
+Step 3 of §5.5 is synchronous: `onNavigate` shows the next card, which sends its
+`openCard`, which may ask to navigate again. A card whose `openCard` sends the stack to
+itself, or two cards that send it to each other, recurse until the stack overflows.
+
+`CardRuntime` stops such a chain. It needs no change to its options or to the app shell,
+because it can tell a run it caused from a run the user caused:
+
+```ts
+let scriptedDepth = 0                 // > 0 while one of our own onNavigate calls is on the stack
+const movedOn = new Set<string>()     // ids of cards whose openCard already moved the stack on in this chain
+
+export const NAVIGATION_LOOP_MESSAGE =
+  "Stopped: this card's openCard sent the stack away and the stack came straight back, so it would never settle. Flip the card to fix its script."
+```
+
+- **A new chain starts** (`movedOn.clear()`) on every user action: `run()` called while
+  `scriptedDepth === 0`, every `rerun()`, and every button click (the host's
+  `onButtonClick` and `click()`), before the handler is sent. `run()` called while
+  `scriptedDepth > 0` is part of the current chain and clears nothing.
+- **When the dialogs are drained** and a `goToCard` is recorded:
+  - the request came from `mouseUp`: navigate;
+  - the request came from `openCard` and the card's id is not in `movedOn`: add it, navigate;
+  - the request came from `openCard` and the id is already in `movedOn`: drop the request,
+    set the status line to `NAVIGATION_LOOP_MESSAGE`, do not call `onNavigate`.
+- **Navigate** means `scriptedDepth += 1; try { options.onNavigate(n) } finally { scriptedDepth -= 1 }`.
+  A depth, not a flag, because the calls nest.
+
+`send` has to pass the handler name down to the drain, including the drain that runs
+later from a dialog's close callback. Dismissing a dialog is not a user action: the
+chain that queued the dialog continues, so `answer "hi"` followed by `go to card 1` in
+card 1's `openCard` shows the dialog twice and then stops.
+
+Why this rule and not another:
+
+- A card's live state is rebuilt from its layout on every run (§5.5, glossary "Run"), so
+  an `openCard` that moved the stack on once will do it again when the stack returns with
+  no user action in between. The second request is therefore a loop, and the first one
+  never is: a chain can visit every card once, so legitimate redirects are untouched.
+- A fixed cap ("at most N scripted moves") needs a number, and lets N dialogs through.
+- Making `go to` the current card a no-op changes what a button's `go to card 1` on
+  card 1 does today (it re-runs the card), and does nothing for a two-card loop.
+- Deferring the move to a later task turns the crash into an endless flicker.
+
+After a stop the card that got the stack last is mounted and showing, with the message
+in its status line. Any user action starts a new chain, which ends after at most one
+`openCard` per card plus one, so the page always comes to rest and Flip is always
+reachable (requirement 7.2). The message is cleared like any status text: by the next run.
 
 ## 6. Compile-once pipeline
 
