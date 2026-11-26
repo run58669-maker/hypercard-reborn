@@ -281,8 +281,12 @@ expressions, plus the fixed frames for the handler and the statement.
 The first draft of this section used a single counter that was released when a parsing
 function returned. That under-counts: a left operand's levels are released before the
 operators above it are counted, so 64 parentheses with operators after each closing one
-passed the check with a tree about 2,000 levels deep. A review and the implementation
-of task 18.1 both caught it before anything shipped.
+passed the check with a tree 2,144 levels deep: 64 for the parentheses, and
+64 + 63 + ... + 1 = 2,080 for the operators, since the chain after a closing parenthesis
+that still has d parentheses around it could hold 64 - d of them. That is with one
+operator; with one from each of five precedence levels after every parenthesis it was
+10,464 (both measured by replaying that counter, 2026-11-27). A review and the
+implementation of task 18.1 both caught it before anything shipped.
 
 A long flat chain is refused too. `"a" & "b" & ...` with 65 operators is 65 levels,
 because its tree is 65 nodes deep on the left side, and the walkers recurse down that
