@@ -7,11 +7,11 @@ import { MAX_NESTING, parse } from './index'
 import { print } from './printer'
 
 // Task 18.1, requirement 7.4: more than 64 levels is the parse error
-// `nested too deeply (limit 64)` at the token that would open level 65, and
-// parse never throws. The run and object-check halves of requirement 7.5 are in
+// `expression too long or nested too deeply (limit 64)` (reworded in task 18.2)
+// at the token that would open level 65, and parse never throws. The run and object-check halves of requirement 7.5 are in
 // src/interpreter/nesting.test.ts and src/compile/nesting.test.ts.
 
-const MESSAGE = 'nested too deeply (limit 64)'
+const MESSAGE = 'expression too long or nested too deeply (limit 64)'
 
 function outcome(source: string): ReturnType<typeof parse> | string {
   try {

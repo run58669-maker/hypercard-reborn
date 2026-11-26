@@ -217,7 +217,7 @@ The parser returns the **first** error it meets, never a list, with:
 
 Error messages must be stable: tests assert on them, and the flipped card shows them verbatim.
 
-A script may nest at most 64 levels (each `(`, `not`, unary `-`, operator applied in a chain, and enclosing block `if` or `repeat` counts as one); deeper is the parse error `nested too deeply (limit 64)` at the token that would open level 65.
+A script may nest at most 64 levels (each `(`, `not`, unary `-`, operator applied in a chain, and enclosing block `if` or `repeat` counts as one); deeper is the parse error `expression too long or nested too deeply (limit 64)` at the token that would open level 65. A chain counts one level per operator, so `a & b & c` is two levels and a chain of 65 operators is refused: build a long value in several statements (`put x & "more" into x`).
 
 ## 7. Runtime limits
 

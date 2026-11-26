@@ -143,7 +143,8 @@ export class Cursor {
   }
 
   private reach(level: number, token: Token): void {
-    if (level > MAX_NESTING) this.fail(`nested too deeply (limit ${String(MAX_NESTING)})`, token)
+    // "too long" because a flat chain of 65 operators is 65 levels as well (design.md §4.4).
+    if (level > MAX_NESTING) this.fail(`expression too long or nested too deeply (limit ${String(MAX_NESTING)})`, token)
     if (level > this.reached) this.reached = level
   }
 
