@@ -425,10 +425,11 @@ adds keyboard access (requirement 5) and is executed from the spec view like 1.1
     - The table tests named `%s without throwing` assert the result and are renamed after what they assert.
     - Done when: for every script at 64 levels the run test asserts the whole `RunResult` and the value the script leaves in a field; the print test asserts that the printed text parses back to the same tree; the object-check test asserts the one reference the script holds; a runtime error raised at the bottom of 64 parentheses and of 64 nested `if` is asserted whole (message, line, column, handler, statements); the test for scripts far over the limit asserts the whole parse error (message, line, column, `near`). `npm run lint`, `npm run typecheck` and `npm test` pass.
     - _Requirements: 7.4, 7.5_
-  - [ ] 19.4 The arrow keys, Reset and Save start a new navigation chain
+  - [x] 19.4 The arrow keys, Reset and Save start a new navigation chain
+    - Written by Claude (Fable 5.2), not run in Kiro (2026-11-27). Three tests through `createApp` with the real store and runtime; the two arrow keys share one. Each stops a chain first, so "afresh" is visible as the card's `openCard` running twice after the action and not once. Never clearing `movedOn` in `cardRuntime.ts`, and reverting, fails all three. The tests use the first condition of 7.1 (the same card asks again); the limit of 16 is not reached in a stack of six cards and stays with the runtime tests of 18.3.
     - Files: `src/ui/app.test.ts`, `docs/traceability.md`. No change to `src/` outside tests.
     - Requirement 7.1 counts "since the last user action". The glossary of requirement 7 lists the arrow keys, a Save that compiles a new script and resetting the stack among them; none of the three has a test.
-    - Done when: app tests show, for each of ArrowRight, ArrowLeft, a Reset and a Save, that the action taken after a chain has been stopped is obeyed again up to the limit (the count starts afresh), and that a chain it starts is stopped with the message. `npm run lint`, `npm run typecheck` and `npm test` pass.
+    - Done when: app tests show, for each of ArrowRight, ArrowLeft, a Reset and a Save, that after a chain has been stopped the action lets the card that is showing send the stack on once more (the count starts afresh), and that the chain it starts is stopped with the message. `npm run lint`, `npm run typecheck` and `npm test` pass.
     - _Requirements: 7.1, 7.3_
   - [ ] 19.5 Wording
     - Files: `tasks.md` (task 18.1), `design.md` (§4.4).

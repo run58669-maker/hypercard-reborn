@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCardRuntime, HELD_MESSAGE } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createApp, MOVED_NOTICE } from './app'
+import type { LoadCompiler } from './compiler'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -369,7 +370,10 @@ const SELF_LOOP = 'on openCard\n  go to card 1\nend openCard'
 const FIXED = 'on openCard\n  put "fixed" into field "greeting"\nend openCard'
 
 /** The seeded stack with the given scripts (by card number) in place of the bundled ones, as if read from storage. */
-function appWith(scripts: Record<number, string>) {
+function appWith(
+  scripts: Record<number, string>,
+  loadCompiler: LoadCompiler = () => Promise.reject(new Error('compiler not loaded in this test')),
+) {
   const cards = seedCards(NOW).map((card, index) => {
     const script = scripts[index + 1]
     return script === undefined ? card : { ...card, script }
@@ -395,7 +399,8 @@ function appWith(scripts: Record<number, string>) {
     runtime,
     storage: fakeStorage(),
     now: () => NOW,
-    loadCompiler: () => Promise.reject(new Error('compiler not loaded in this test')),
+    loadCompiler,
+    confirm: () => true,
   })
   const q = <T extends HTMLElement>(testid: string) => root.querySelector<T>(`[data-testid="${testid}"]`)
 
@@ -580,5 +585,81 @@ describe('a script that keeps sending the stack on', () => {
     expect(q('status-line')?.textContent).toBe('')
     expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
     expect(q('stored-script')?.textContent).toBe(FIXED)
+  })
+})
+
+// Task 19.4, requirement 7.1: the count is "since the last user action", and the
+// glossary of requirement 7 lists the arrow keys, resetting the stack and a Save
+// that compiles a new script among the user actions. Each test first lets a chain
+// be stopped, then takes the action: the card's request is obeyed once more (its
+// openCard runs twice, not once), and the chain the action starts is stopped too.
+describe('a user action after a stopped chain starts a new one', () => {
+  const press = (key: string): void => {
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+  }
+
+  it('ArrowRight and ArrowLeft: each key lets the card it shows send the stack on once more, then the chain is stopped', () => {
+    const { app, q, opened } = appWith({ 1: SELF_LOOP, 2: 'on openCard\n  go to card 2\nend openCard' })
+    app.go(1)
+    expect(opened).toEqual(['hello', 'hello'])
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+
+    press('ArrowRight')
+    expect(opened).toEqual(['hello', 'hello', 'counter', 'counter'])
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+
+    // Card 1 has already sent the stack on twice in this test; the key starts the count afresh.
+    press('ArrowLeft')
+    expect(opened).toEqual(['hello', 'hello', 'counter', 'counter', 'hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+
+    // And so does ArrowRight for card 2.
+    press('ArrowRight')
+    expect(opened).toEqual(['hello', 'hello', 'counter', 'counter', 'hello', 'hello', 'counter', 'counter'])
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+  })
+
+  it('Reset: the card that is showing runs afresh, sends the stack on once more, then the chain is stopped', () => {
+    // The store resets to the cards it was created with, so the loop is still there after the reset.
+    const { app, store, q, opened } = appWith({ 1: SELF_LOOP })
+    app.go(1)
+    expect(opened).toEqual(['hello', 'hello'])
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    const before = store.getCards()
+
+    q<HTMLButtonElement>('reset-cards')?.click()
+    expect(store.getCards()).not.toBe(before)
+    expect(opened).toEqual(['hello', 'hello', 'hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    expect(q('reset-error')?.hidden).toBe(true)
+  })
+
+  it('Save: the compiled script runs afresh, sends the stack on once more, then the chain is stopped', async () => {
+    const compiled = 'on openCard\n  go to card 1\nend openCard\n'
+    const { app, store, q, opened } = appWith({ 1: SELF_LOOP }, () =>
+      Promise.resolve({
+        compile: () => Promise.resolve({ ok: true, script: compiled, descriptionHash: 'hash', provider: 'canned' }),
+        descriptionHash: () => Promise.resolve('hash'),
+        missingObjects: () => [],
+      }),
+    )
+    app.go(1)
+    expect(opened).toEqual(['hello', 'hello'])
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+
+    q<HTMLButtonElement>('flip')?.click()
+    q<HTMLButtonElement>('save-description')?.click()
+    await vi.waitFor(() => {
+      expect(store.getCard('hello')?.scriptOrigin.kind).toBe('compiled')
+    })
+    expect(store.getCard('hello')?.script).toBe(compiled)
+    expect(opened).toEqual(['hello', 'hello', 'hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    expect(q('compile-error')?.hidden).toBe(true)
   })
 })
