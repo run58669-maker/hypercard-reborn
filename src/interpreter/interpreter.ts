@@ -46,7 +46,7 @@ class Execution {
     readonly host: Host,
     target: string,
   ) {
-    this.context = { host, variables: new Map(), target }
+    this.context = { host, variables: new Map(), target, work: { units: 0 } }
   }
 
   /** Charges one statement to the budget; stops the run when it is spent. */

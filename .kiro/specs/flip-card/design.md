@@ -324,6 +324,14 @@ export function run(program: Program, handler: 'mouseUp' | 'openCard', host: Hos
   run stops it with `too many answer dialogs (limit 10)`. Without it, `repeat forever`
   around `answer` queues about 5,000 dialogs before the statement budget ends the run,
   and every one of them has to be dismissed before Flip can be reached (§5.5).
+- Executes with a work budget of 1,000,000 units (requirement 7.9). The statement
+  budget counts statements, and one statement may hold an expression of thousands of
+  nodes. `evaluate` therefore charges every node it evaluates one unit, and one more
+  unit per 256 UTF-16 code units of the value the node yields, to a counter the run
+  owns (`EvalContext.work`); the node that would go over stops the run with
+  `script ran too long`. A script of the bundled kind spends a few units per
+  statement, so 10,000 statements stay far below it and end on the statement budget
+  as before. The worst run is bounded by both budgets together.
 - Variables live in a `Map<string, string>` keyed by lower-cased name, created per run.
 - Runtime errors stop the handler at the failing statement. Side effects already
   performed stay (a field already written stays written). The error is returned, never
@@ -339,8 +347,10 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
   `Number()`. Rendering: if the result is an integer with magnitude below 1e21,
   `String(n)`; otherwise `n.toFixed(6)` with trailing zeros and a trailing `.` removed.
   Non-finite results are the runtime error `number out of range`.
-- Every produced value is checked against the 64 KiB limit at the point it is produced
-  (`&`, `&&`, arithmetic rendering, `put`); exceeding it is `value too long`.
+- Every value an expression node yields is checked against the 64 KiB limit in
+  `evaluate`, at every depth and wherever the value is used (a literal, a field read,
+  `&`, `&&`, arithmetic, the value of `put`, `get`, `answer` and `set name`);
+  exceeding it is `value too long` at that node (requirement 7.9).
 - Booleans are the lower-case strings `true` / `false`; accepted case-insensitively.
 
 ### 5.4 Runtime error messages
@@ -355,7 +365,7 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
 | `set enabled of field` | `field "x" has no enabled property` |
 | `go to card` out of range | `card 7 does not exist` (the number after truncation) |
 | `go to card` with a non-number | `expected a number, found "abc"` |
-| Statement budget exhausted | `script ran too long` |
+| Statement budget or work budget exhausted | `script ran too long` |
 | Eleventh `answer` in one run | `too many answer dialogs (limit 10)` |
 | Value over 64 KiB | `value too long` |
 

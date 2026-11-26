@@ -355,5 +355,6 @@ describe('the limit follows the tree', () => {
     expect(outcomes.parsed).toBeGreaterThan(2000)
     expect(outcomes.refused).toBeGreaterThan(500)
     expect(outcomes.atLimit).toBeGreaterThan(100)
-  })
+    // About 2 s alone; the whole suite on a loaded machine has taken 6.5 s.
+  }, 30_000)
 })
