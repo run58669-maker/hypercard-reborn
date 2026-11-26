@@ -116,6 +116,55 @@ describe('CardRuntime', () => {
     expect(onResult).toHaveBeenCalledWith('hello', 'openCard', result)
   })
 
+  it('does not navigate when the handler stops with an error after go to card, and keeps the error on the card', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = {
+      ...card('hello'),
+      script: 'on openCard\n  answer "before"\n  go to card 2\n  go to card 99\nend openCard\n',
+    }
+    const result = runtime.run(custom, m)
+    expect(result.ok).toBe(false)
+    // The dialog queued before the error is still shown.
+    expect(q('answer-dialog')?.querySelector('p')?.textContent).toBe('before')
+    q<HTMLButtonElement>('answer-ok')?.click()
+    expect(q('answer-dialog')).toBeNull()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe('Runtime error in openCard, line 4: card 99 does not exist')
+
+    // The dropped request is not left behind for the next run of the same card.
+    runtime.rerun({ ...custom, script: 'on openCard\n  put "ok" into field "greeting"\nend openCard\n' })
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate from mouseUp either when the handler stops with an error', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = {
+      ...card('counter'),
+      script: 'on mouseUp\n  go to card 1\n  put field "nope" into x\nend mouseUp\n',
+    }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe('Runtime error in mouseUp, line 3: field "nope" does not exist')
+  })
+
+  it('treats a dialog the browser closed by itself like OK', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = { ...card('counter'), script: 'on mouseUp\n  answer "hi"\n  go to card 1\nend mouseUp\n' }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    const dialog = q<HTMLDialogElement>('answer-dialog')
+    if (dialog === null) throw new Error('no dialog')
+    // No cancel event and no click: only the close event that every closing fires.
+    dialog.dispatchEvent(new Event('close'))
+    expect(q('answer-dialog')).toBeNull()
+    expect(runtime.dialogOpen()).toBe(false)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+    // The card's buttons work again.
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q('answer-dialog')).not.toBeNull()
+  })
+
   it('clears the status line on a successful handler', () => {
     const { runtime, m, q } = setup()
     const flaky: Card = {

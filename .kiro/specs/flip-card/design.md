@@ -364,9 +364,13 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
 The interpreter is synchronous. The `DomHost` queues `answer` dialogs and remembers at
 most one `goToCard` request (the last one wins). After `run` returns, `CardRuntime`:
 
-1. shows the runtime error in the status line, if any;
+1. shows the runtime error in the status line, if any, and in that case forgets the
+   recorded `goToCard`: a handler that stopped with an error does not move the stack,
+   so the error stays in front of the user;
 2. shows the queued dialogs one at a time (`<dialog data-testid="answer-dialog">`, an
-   OK button, Enter closes); while a dialog is open the card's buttons are inert;
+   OK button, Enter closes); while a dialog is open the card's buttons are inert. The
+   dialog's `close` event counts as OK, so a dialog the browser closed without a
+   `cancel` event does not leave the buttons inert;
 3. after the last dialog is dismissed, if a `goToCard` was recorded, navigates to that
    card (§7.1), which runs it.
 

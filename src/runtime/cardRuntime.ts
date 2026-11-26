@@ -85,6 +85,9 @@ export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
     const result = run(entry.program, handler, entry.host, { target })
     entry.mount.statusLine.textContent = statusFor(handler, result)
     options.onResult?.(entry.card.id, handler, result)
+    // A handler that stopped with an error does not move the stack: the card
+    // stays, with the error in its status line. Its dialogs are still shown.
+    if (!result.ok) entry.host.pendingNavigation = null
     drain(entry, handler)
     return result
   }
@@ -163,6 +166,8 @@ export function createCardRuntime(options: CardRuntimeOptions): CardRuntime {
       close()
     })
     dialog.addEventListener('keydown', onKey)
+    // Every way of closing fires `close`, also one that fired no `cancel`.
+    dialog.addEventListener('close', close)
 
     entry.host.inert = true
     openDialog = dialog
