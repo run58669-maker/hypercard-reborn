@@ -134,6 +134,11 @@ anything if it fails. This is the mechanism behind requirements 1.4 and 3.4: the
 "previous script" is kept simply because nothing replaced it. On success it sets
 `updatedAt` and `scriptOrigin`, persists, and notifies subscribers once.
 
+A change is delivered to the subscribers the store had when the change was made:
+`notify` iterates a copy of the set and skips a subscriber that has unsubscribed in the
+meantime. A subscriber added while a change is being delivered gets the next change,
+not this one. §5.6 says why that matters.
+
 ### 3.2 Seeded cards
 
 The six bundled cards (`examples/`, order = stack order) have these layouts. Every field
@@ -209,7 +214,7 @@ double quotes, structural positions are bare words.
 | Unknown property in `set` | `expected "visible", "enabled" or "name", found "x"` |
 | Block statement after single-line `then`/`else` | `a single-line if cannot contain "if" or "repeat"` |
 | Statement outside a handler | `expected "on", found "put"` |
-| More than 64 levels of nesting (§4.4) | `nested too deeply (limit 64)` |
+| More than 64 levels of nesting, or a chain of more than 64 operators (§4.4) | `expression too long or nested too deeply (limit 64)` |
 
 Positions: `line` and `column` are those of the offending token (`found Y`); for
 `duplicate handler` they point at the second `on`.
@@ -225,28 +230,51 @@ The parser therefore bounds the depth of the tree it builds:
 export const MAX_NESTING = 64
 ```
 
-`Cursor` keeps one counter. `enter(token)` adds one and, if the result is above
-`MAX_NESTING`, fails with `nested too deeply (limit 64)` at `token`; `leave(levels = 1)`
-subtracts. Every place where the tree gets one level deeper pays one level:
+`Cursor` keeps two numbers.
 
-| Construct | enter at | leave |
-| --- | --- | --- |
-| `( expression )` | the `(` | after the `)` |
-| `not operand`, `- operand` | the `not` / `-` | after the operand |
-| each operator applied in a left-associative chain (`or`, `and`, comparison, `&`/`&&`, `+`/`-`, `*`/`/`/`div`/`mod`): the new node sits one level above the previous left operand | the operator token | all the levels of the chain together, when the chain's function returns |
-| block `if` (then and else bodies), `repeat` body | the `if` / `repeat` keyword | after `end if` / `end repeat` |
+- `depth`: the levels open around the current token. `enter(token)` adds one and
+  `leave()` subtracts one. `(`, `not`, unary `-`, a block `if` and a `repeat` enter at
+  their own token, and the right operand of every binary operator is parsed one level in.
+- `reached`: the deepest level reached since the innermost chain started.
+  `startChain()` sets it to `depth` and returns the enclosing chain's value;
+  `endChain(outer)` keeps the larger of the two.
 
-The counter is an upper bound on the depth of the finished tree, so a script that parses
-can be walked by any recursive consumer in at most 64 nested calls per function. Because
-a `Failure` unwinds through `parse`, the counter needs no cleanup on the error path: a
-`Cursor` is used for one parse only.
+A left-associative chain builds its tree upwards: in `a + b + c` the node for the second
+`+` sits above the node for the first, which was finished earlier. An operator therefore
+cannot be charged against `depth`. `chainOperator(token)` charges it one level above
+everything its left operand reached, `reached + 1`.
 
-Any other recursive cycle in `parser.ts` or `expressions.ts` found while implementing
-(task 18.1 lists them by reading the code) pays a level the same way. Loops that do not
-deepen the tree (statements in a block, handlers in a script) pay nothing.
+A level above `MAX_NESTING`, whether it comes from `enter` or from `chainOperator`, fails
+with `expression too long or nested too deeply (limit 64)` at that token. A `Failure`
+unwinds through `parse`, so neither number needs cleanup on the error path: a `Cursor`
+is used for one parse only.
 
-`64` is far above what a card needs (the six bundled scripts stay under 5) and far below
-what any engine's stack holds (about 10 parser frames per level).
+Why this bounds the tree. Write h(e) for the height of an expression: 0 for a literal, a
+variable or an object reference; 1 + h(inner) for `( )`, `not` and unary `-`;
+1 + max(h(left), h(right)) for a binary operator. If `e` starts at depth d, then when its
+parse returns `reached` is at least d + h(e). By induction: the left operand leaves
+`reached` at d + h(left) or more, the operator raises it to d + h(left) + 1, and the right
+operand, parsed at d + 1, raises it to d + 1 + h(right). Every level reached was checked,
+so d + h(e) is at most 64 for every expression in a script that parses, and d counts the
+blocks around it. A recursive walk therefore nests at most 64 levels of blocks and
+expressions, plus the fixed frames for the handler and the statement.
+
+The first draft of this section used a single counter that was released when a parsing
+function returned. That under-counts: a left operand's levels are released before the
+operators above it are counted, so 64 parentheses with operators after each closing one
+passed the check with a tree about 2,000 levels deep. A review and the implementation
+of task 18.1 both caught it before anything shipped.
+
+A long flat chain is refused too. `"a" & "b" & ...` with 65 operators is 65 levels,
+because its tree is 65 nodes deep on the left side, and the walkers recurse down that
+side. The message says "too long" for that reason, and `docs/grammar.md`, which is the
+body of the compile prompt (§6.5), states the limit so that a model spreads such an
+expression over several statements.
+
+Loops that do not deepen the tree (statements in a block, handlers in a script) pay
+nothing. A single-line `if` holds one simple statement and cannot hold a block (§4.3),
+so it adds a fixed frame and no level. `64` is far more than a hand-written card script
+nests and far below what an engine's stack holds (about 10 parser frames per level).
 
 ## 5. Interpreter
 
@@ -292,6 +320,10 @@ export function run(program: Program, handler: 'mouseUp' | 'openCard', host: Hos
   only `on mouseUp` opens silently).
 - Executes with a statement budget of 10,000: every statement node that begins
   executing decrements the budget; at 0 the run stops with `script ran too long`.
+- Executes with a dialog budget of 10 (requirement 7.6): the eleventh `answer` in one
+  run stops it with `too many answer dialogs (limit 10)`. Without it, `repeat forever`
+  around `answer` queues about 5,000 dialogs before the statement budget ends the run,
+  and every one of them has to be dismissed before Flip can be reached (§5.5).
 - Variables live in a `Map<string, string>` keyed by lower-cased name, created per run.
 - Runtime errors stop the handler at the failing statement. Side effects already
   performed stay (a field already written stays written). The error is returned, never
@@ -324,6 +356,7 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
 | `go to card` out of range | `card 7 does not exist` (the number after truncation) |
 | `go to card` with a non-number | `expected a number, found "abc"` |
 | Statement budget exhausted | `script ran too long` |
+| Eleventh `answer` in one run | `too many answer dialogs (limit 10)` |
 | Value over 64 KiB | `value too long` |
 
 ### 5.5 Deferred effects
@@ -339,7 +372,7 @@ most one `goToCard` request (the last one wins). After `run` returns, `CardRunti
 
 So the quiz card shows "Correct!", and only when OK is pressed does card 2 open.
 
-### 5.6 Scripted navigation chains (requirement 7.1 to 7.3)
+### 5.6 Scripted navigation chains (requirement 7.1 to 7.3, 7.7)
 
 Step 3 of §5.5 is synchronous: `onNavigate` shows the next card, which sends its
 `openCard`, which may ask to navigate again. A card whose `openCard` sends the stack to
@@ -352,19 +385,21 @@ because it can tell a run it caused from a run the user caused:
 let scriptedDepth = 0                 // > 0 while one of our own onNavigate calls is on the stack
 const movedOn = new Set<string>()     // ids of cards whose openCard already moved the stack on in this chain
 
+export const MAX_SCRIPTED_MOVES = 16
 export const NAVIGATION_LOOP_MESSAGE =
-  "Stopped: this card's openCard sent the stack away and the stack came straight back, so it would never settle. Flip the card to fix its script."
+  'Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.'
 ```
 
-- **A new chain starts** (`movedOn.clear()`) on every user action: `run()` called while
-  `scriptedDepth === 0`, every `rerun()`, and every button click (the host's
-  `onButtonClick` and `click()`), before the handler is sent. `run()` called while
+- **A new chain starts** (`movedOn.clear()`) on every user action: `run()`, `rerun()` and
+  a button click (the host's `onButtonClick` and `click()`), each only while
+  `scriptedDepth === 0`, before the handler is sent. A `run()` that happens while
   `scriptedDepth > 0` is part of the current chain and clears nothing.
 - **When the dialogs are drained** and a `goToCard` is recorded:
   - the request came from `mouseUp`: navigate;
-  - the request came from `openCard` and the card's id is not in `movedOn`: add it, navigate;
-  - the request came from `openCard` and the id is already in `movedOn`: drop the request,
-    set the status line to `NAVIGATION_LOOP_MESSAGE`, do not call `onNavigate`.
+  - the request came from `openCard`, the card's id is not in `movedOn`, and `movedOn`
+    holds fewer than `MAX_SCRIPTED_MOVES` ids: add it, navigate;
+  - otherwise: drop the request, set the status line to `NAVIGATION_LOOP_MESSAGE`, do not
+    call `onNavigate`.
 - **Navigate** means `scriptedDepth += 1; try { options.onNavigate(n) } finally { scriptedDepth -= 1 }`.
   A depth, not a flag, because the calls nest.
 
@@ -373,21 +408,44 @@ later from a dialog's close callback. Dismissing a dialog is not a user action: 
 chain that queued the dialog continues, so `answer "hi"` followed by `go to card 1` in
 card 1's `openCard` shows the dialog twice and then stops.
 
-Why this rule and not another:
+Why this rule:
 
-- A card's live state is rebuilt from its layout on every run (§5.5, glossary "Run"), so
-  an `openCard` that moved the stack on once will do it again when the stack returns with
-  no user action in between. The second request is therefore a loop, and the first one
-  never is: a chain can visit every card once, so legitimate redirects are untouched.
-- A fixed cap ("at most N scripted moves") needs a number, and lets N dialogs through.
+- A card's live state is rebuilt from its layout on every run (§5.5, glossary "Run"),
+  and the only other thing a script can read that differs between two runs is the clock
+  (`the time`, `the date`). So an `openCard` that moved the stack on once will, in
+  practice, do it again when the stack returns with no user action in between. The
+  runtime does not try to prove that. It stops the second request and says what it did;
+  the message does not claim the script would never have settled.
+- The cap of 16 covers what the repeat check cannot. A stack of many cards that each
+  send the stack to the next never repeats a card, every move nests about a dozen calls
+  (`go`, `show`, `run`, `send`, `drain`, `onNavigate`), and `loadCards` puts no limit on
+  the number of cards, so a long enough stack would still overflow. Sixteen is more than
+  twice the bundled stack.
+- A cap alone would let a self-loop show sixteen rounds of its dialogs before it stops;
+  the repeat check stops it after two.
 - Making `go to` the current card a no-op changes what a button's `go to card 1` on
   card 1 does today (it re-runs the card), and does nothing for a two-card loop.
 - Deferring the move to a later task turns the crash into an endless flicker.
 
 After a stop the card that got the stack last is mounted and showing, with the message
-in its status line. Any user action starts a new chain, which ends after at most one
-`openCard` per card plus one, so the page always comes to rest and Flip is always
-reachable (requirement 7.2). The message is cleared like any status text: by the next run.
+in its status line. Any user action starts a new chain, which ends after at most 17
+moves (one from a button and 16 from `openCard` handlers), so the page always comes to
+rest and Flip is always reachable (requirement 7.2). The message is cleared like any
+status text: by the next run.
+
+**Committing a looping script.** `commitScript` notifies the store's subscribers, the
+card's view re-runs the card, the chain moves the stack, and `app.go` disposes that view
+and subscribes a new one, all inside the one notification. The store therefore delivers
+each change to the subscribers it had when the change was made (§3.1). Iterating the
+live set would hand the same change to the new view, which would re-run the card, which
+would move the stack again; and since a `rerun()` at depth 0 starts a new chain, nothing
+would ever stop it. With the copy, the new view is simply left showing the message: its
+`run()` happened at `scriptedDepth > 0`, inside the chain the commit started.
+
+**A card whose stored script does not parse** (requirement 7.7) has no `Mounted` entry,
+because nothing runs. The runtime still remembers its `CardMount`, so that the `rerun()`
+that follows a successful commit on its back can mount the card and run it. `unmount()`
+forgets it.
 
 ## 6. Compile-once pipeline
 
