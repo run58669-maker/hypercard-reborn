@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { parse } from '../parser'
 import type { Program } from '../parser'
 import { FakeHost } from './fakeHost'
-import { run, STATEMENT_BUDGET } from './interpreter'
+import { DIALOG_BUDGET, run, STATEMENT_BUDGET } from './interpreter'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -163,6 +163,58 @@ describe('run', () => {
     expect(result).toMatchObject({ ok: false, statements: STATEMENT_BUDGET, error: { message: 'script ran too long' } })
     // 10,000 charges: 5,000 for the repeat head and 5,000 for the body.
     expect(h.object('field', 'count')?.text).toBe('5000')
+  })
+
+  // Task 18.4, requirement 7.6.
+  describe('the dialog budget', () => {
+    const TOO_MANY = 'too many answer dialogs (limit 10)'
+    const numbers = (count: number): string[] => Array.from({ length: count }, (_, index) => String(index + 1))
+    const answers = (count: number): string => numbers(count).map((n) => `  answer "${n}"`).join('\n')
+
+    it('is 10', () => {
+      expect(DIALOG_BUDGET).toBe(10)
+    })
+
+    it('lets ten answer statements run', () => {
+      const { result, host: h } = mouseUp(answers(10))
+      expect(result).toEqual({ ok: true, statements: 10 })
+      expect(h.dialogs).toEqual(numbers(10))
+    })
+
+    it('stops the handler at the eleventh, at its own line, and the ten before it stay', () => {
+      const { result, host: h } = mouseUp(`${answers(11)}\n  put "after" into field "list"`)
+      expect(result).toEqual({
+        ok: false,
+        statements: 11,
+        error: { message: TOO_MANY, line: 12, column: 3, handler: 'mouseUp' },
+      })
+      expect(h.dialogs).toEqual(numbers(10))
+      expect(h.object('field', 'list')?.text).not.toBe('after')
+    })
+
+    it('does not evaluate the value of the eleventh', () => {
+      const { result } = mouseUp(`${answers(10)}\n  answer field "nope"`)
+      expect(result).toMatchObject({ ok: false, error: { message: TOO_MANY, line: 12 } })
+    })
+
+    it('starts the count again on the next run of the same program', () => {
+      const p = program(`on mouseUp\n${answers(10)}\nend mouseUp\n`)
+      const h = host()
+      expect(run(p, 'mouseUp', h, { target: 'Go' })).toEqual({ ok: true, statements: 10 })
+      expect(run(p, 'mouseUp', h, { target: 'Go' })).toEqual({ ok: true, statements: 10 })
+      expect(h.dialogs).toHaveLength(20)
+    })
+
+    it('ends repeat forever around answer after ten dialogs, and not with script ran too long', () => {
+      const { result, host: h } = mouseUp('  repeat forever\n    answer "hi"\n  end repeat')
+      // 22 charges: the repeat and the answer, eleven times each.
+      expect(result).toEqual({
+        ok: false,
+        statements: 22,
+        error: { message: TOO_MANY, line: 3, column: 5, handler: 'mouseUp' },
+      })
+      expect(h.dialogs).toEqual(numbers(10).map(() => 'hi'))
+    })
   })
 
   it('keeps side effects performed before the failing statement', () => {

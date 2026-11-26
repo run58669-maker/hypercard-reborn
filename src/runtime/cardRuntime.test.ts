@@ -446,6 +446,25 @@ describe('a chain of openCard handlers that send the stack on', () => {
   })
 })
 
+// Task 18.4, requirement 7.6.
+describe('a handler that keeps asking for dialogs', () => {
+  it('shows ten: after ten presses of OK none is left and the status line says why the script stopped', () => {
+    const s = stack([onOpen('repeat forever\n    answer "hi"\n  end repeat')])
+    const error = 'Runtime error in openCard, line 3: too many answer dialogs (limit 10)'
+    expect(s.show(1).ok).toBe(false)
+    expect(s.status()).toBe(error)
+    for (let press = 1; press <= 10; press += 1) {
+      expect(s.q('answer-dialog')?.querySelector('p')?.textContent).toBe('hi')
+      expect(s.runtime.dialogOpen()).toBe(true)
+      s.q<HTMLButtonElement>('answer-ok')?.click()
+    }
+    expect(s.q('answer-dialog')).toBeNull()
+    expect(s.runtime.dialogOpen()).toBe(false)
+    expect(s.status()).toBe(error)
+    expect(s.opened).toEqual([1])
+  })
+})
+
 describe('a card whose stored script does not parse', () => {
   const BROKEN = 'on openCard\n'
   const FIXED = 'on openCard\n  put "fixed" into field "greeting"\nend openCard\n'

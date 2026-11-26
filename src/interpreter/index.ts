@@ -1,5 +1,5 @@
 // Public surface of the interpreter module (design.md §2).
-export { run, STATEMENT_BUDGET } from './interpreter'
+export { DIALOG_BUDGET, run, STATEMENT_BUDGET } from './interpreter'
 export type { RunOptions, RunResult, RuntimeError } from './interpreter'
 export type { Host, HostObject, ObjectKind } from './host'
 export { formatDate, formatTime } from './evaluate'
