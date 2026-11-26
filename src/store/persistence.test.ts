@@ -95,6 +95,26 @@ describe('openCardStore', () => {
     expect(loadCards(storage)).toEqual(seedCards(NOW))
   })
 
+  // Task 19.1, requirement 8.1: after a refused write, memory and storage hold the same cards.
+  it('keeps memory and storage equal when setItem throws on a commit, a description and a reset', () => {
+    const storage = fakeStorage()
+    const store = openCardStore({ storage, now: () => NOW })
+    store.commitScript('hello', '', { kind: 'edited', at: NOW.toISOString() })
+    const stored = storage.map.get(CARDS_KEY)
+    const refuse = (): void => {
+      throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    }
+    const full: StorageLike = { getItem: (key) => storage.getItem(key), setItem: refuse, removeItem: (key) => { storage.removeItem(key) } }
+    const again = openCardStore({ storage: full, now: () => NOW })
+    const script = EXAMPLES[0]?.script ?? ''
+    expect(again.commitScript('hello', script, { kind: 'edited', at: NOW.toISOString() })).toMatchObject({ ok: false, reason: 'storage' })
+    expect(again.saveDescription('hello', 'new words')).toEqual({ ok: false, reason: 'storage' })
+    expect(again.resetToSeed()).toEqual({ ok: false, reason: 'storage' })
+    expect(again.getCard('hello')?.script).toBe('')
+    expect(storage.map.get(CARDS_KEY)).toBe(stored)
+    expect(loadCards(storage)).toEqual(again.getCards())
+  })
+
   it('treats a throwing storage as empty', () => {
     const storage: StorageLike = {
       getItem: () => {

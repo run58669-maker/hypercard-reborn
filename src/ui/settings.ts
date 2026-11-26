@@ -36,6 +36,9 @@ export interface Settings {
 
 export const RESET_CONFIRMATION = 'Replace every card with the six bundled examples? Edited scripts and descriptions will be lost.'
 
+/** Shown beside the Reset button when storage refuses the reset (design.md §9). */
+export const RESET_NOT_SAVED = "The cards were not reset: the browser's storage is full or unavailable."
+
 export function createSettings(deps: SettingsDeps): Settings {
   const confirm = deps.confirm ?? ((message: string) => window.confirm(message))
 
@@ -45,6 +48,8 @@ export function createSettings(deps: SettingsDeps): Settings {
   keyInput.autocomplete = 'off'
   const forget = el('button', { testid: 'forget-key', text: 'Forget key' })
   const reset = el('button', { testid: 'reset-cards', text: 'Reset to bundled cards' })
+  const resetError = el('p', { class: 'settings-note', testid: 'reset-error', hidden: true })
+  resetError.setAttribute('role', 'alert')
   const close = el('button', { testid: 'settings-close', text: 'Close' })
 
   const element = el('dialog', { class: 'settings', testid: 'settings-panel', ariaLabel: 'Settings' }, [
@@ -65,7 +70,7 @@ export function createSettings(deps: SettingsDeps): Settings {
         text: 'The key is stored in this browser\'s local storage, read only when you press Save on a description, and sent only to the Anthropic API. A browser-held key is only appropriate for a personal key on a personal machine.',
       }),
     ]),
-    el('fieldset', { class: 'settings-group' }, [el('legend', { text: 'Cards' }), reset]),
+    el('fieldset', { class: 'settings-group' }, [el('legend', { text: 'Cards' }), reset, resetError]),
     el('div', { class: 'settings-actions' }, [close]),
   ])
 
@@ -105,7 +110,10 @@ export function createSettings(deps: SettingsDeps): Settings {
     syncFromStorage()
   })
   reset.addEventListener('click', () => {
-    if (confirm(RESET_CONFIRMATION)) deps.store.resetToSeed()
+    if (!confirm(RESET_CONFIRMATION)) return
+    const saved = deps.store.resetToSeed().ok
+    resetError.textContent = saved ? '' : RESET_NOT_SAVED
+    resetError.hidden = saved
   })
 
   const settings: Settings = {

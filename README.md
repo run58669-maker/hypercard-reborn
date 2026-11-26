@@ -158,8 +158,9 @@ Stated plainly, so nobody has to guess from the commit log:
 | Requirement 6 (a compiled script must fit the card's objects) and tasks 17.1 to 17.4: the object check, the `unknown-object` compile error, chips that are enabled only on the card they fit, the rewritten end-to-end test | Claude Code, in the spec and in the code; none of the four tasks was run in Kiro | commits `54130d5`, `20662be`, `bb0a9a7`, `424d407`, `e4d88fb` and the 17.4 commit |
 | Requirement 7 (a script cannot trap the stack) and tasks 18.1 to 18.5: the 64-level nesting limit in the parser, the stop for `openCard` handlers that keep sending the stack on, the limit of 10 `answer` dialogs per run, repairing a card whose stored script does not parse, the browser tests | Claude Code, in the spec and in the code: 18.1 by a Claude Opus 5.5 agent, 18.2 to 18.5 by Claude Fable 5.2. A second model (GPT, through the Codex CLI) reviewed the first draft of the requirement and the design and found four holes; the requirement was revised before 18.2 to 18.5 were written. None of the five tasks was run in Kiro | commits `6dde7d4`, `bc9a60e`, `90ea42d`, `33f3d92`, `93a9acf`, `a2fb686` and the 18.5 commit (`bc9a60e`, the 18.1 commit, carries only the Fable 5.2 trailer: the session that committed it) |
 | Tasks 18.6 to 18.8, after four reviews of 18.1 to 18.5 (three Claude review agents and GPT through the Codex CLI, all reading the code and running nothing): an error after `go to card` no longer moves the stack, a dialog the browser closes counts as OK, a card whose `openCard` sends the stack away is named in a notice and can be opened without running it (requirement 7.8), a run does a bounded amount of expression work (requirement 7.9) | Claude Code (Fable 5.2), in the spec and in the code. GPT had proposed a "pause scripts" switch for 7.8; `design.md` §5.7 says why a notice was built instead. None of the three tasks was run in Kiro | commits `a32b601`, `cf5ae9e`, `143952c`, `be94638` |
+| Requirement 8 (a change that could not be stored is not shown as made) and tasks 19.1 to 19.5, which close what task 18.6 listed as open: a Commit, Save or Reset that the browser's storage refuses leaves the card as it was and says so; a Save that answers after a later Commit or Reset is dropped; the nesting tests assert results; tests for the arrow keys, Reset and Save as user actions; two corrections of wording | Claude Code (Fable 5.2), in the spec and in the code. None of the five tasks was run in Kiro | the five commits titled `flip-card 19.1` to `flip-card 19.5` |
 
-So Kiro executed 6 of the 65 sub-tasks: 1.1, 1.2 and 16.1 to 16.4. The spec, steering
+So Kiro executed 6 of the 70 sub-tasks: 1.1, 1.2 and 16.1 to 16.4. The spec, steering
 and hooks are real Kiro artefacts and Kiro ran against them, but most of the
 implementation was not typed by Kiro's agent. The three hooks are configured in `.kiro/hooks/`, and the pre-commit gate
 has a plain-git twin in `.githooks/` that ran on every commit; whether the two `askAgent`
@@ -169,9 +170,9 @@ hooks fired inside Kiro during those tasks was not recorded.
 
 | File | What it holds |
 |---|---|
-| `requirements.md` | 7 requirements, 34 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
+| `requirements.md` | 8 requirements, 39 EARS acceptance criteria, a glossary that fixes the contested words (*run*, *the LLM*, *commit*). |
 | `design.md` | Module boundaries, the one invariant (`Card.script` is the only executable artefact), every public type, every parse and runtime error message, the six seeded card layouts, the `data-testid` contract, assumptions taken where the requirements leave room. |
-| `tasks.md` | 18 groups, 65 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
+| `tasks.md` | 19 groups, 70 sub-tasks, each sized for one Kiro execution with a *Done when* line and the `_Requirements_` it serves. Open the spec in Kiro and run them in order. |
 | `examples/<id>.hc/` | The six bundled cards as `description.txt` + `script.hc`, byte-identical to `docs/grammar.md` §8. The app imports these files directly. |
 
 `docs/grammar.md` is the language definition everything derives from: the parser

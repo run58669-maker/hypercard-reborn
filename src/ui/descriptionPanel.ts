@@ -31,6 +31,18 @@ export interface DescriptionPanel {
 
 export const STALE_NOTICE = 'The stored script was compiled from an older description. Press Save to compile this one.'
 
+/** Shown when storage refuses the description of a Save (design.md §9, requirement 8.3). */
+export const DESCRIPTION_NOT_SAVED =
+  "The description was not saved: the browser's storage is full or unavailable. Nothing was compiled, and your text is kept here."
+
+/** Shown when the description was stored and storage refuses the script compiled from it (requirement 8.3). */
+export const SCRIPT_NOT_SAVED =
+  "The compiled script was not saved: the browser's storage is full or unavailable. The previous script is still running."
+
+/** Shown when the card was committed or reset while its description was compiling (requirement 8.5). */
+export const SAVE_OVERTAKEN =
+  'The card changed while this description was compiling, so the compiled script was not stored. Press Save to compile it again.'
+
 /** The title of a chip whose script names objects the rendered card lacks (design.md §6.8). */
 export function unfitChipTitle(exampleTitle: string): string {
   return `Needs objects this card does not have. Open the ${exampleTitle} card to use it.`
@@ -175,8 +187,16 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
       status.textContent = 'Compiling…'
       clearError()
       const description = input.value
+      // Set when the description did not reach the store: the input then keeps what was typed.
+      let keepInput = false
       try {
-        deps.store.saveDescription(deps.cardId, description)
+        if (!deps.store.saveDescription(deps.cardId, description).ok) {
+          keepInput = true
+          showError(DESCRIPTION_NOT_SAVED, null)
+          return
+        }
+        // The card as this Save left it. A Commit or a Reset replaces the object (design.md §6.1).
+        const saved = deps.store.getCard(deps.cardId)
         const compiler = await deps.loadCompiler()
         const objects = deps.store.getCard(deps.cardId)?.objects ?? []
         const result = await compiler.compile(description, deps.provider(), { objects }, new AbortController().signal)
@@ -185,12 +205,18 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
           showError(result.error.message, rejected)
           return
         }
+        if (deps.store.getCard(deps.cardId) !== saved) {
+          showError(SAVE_OVERTAKEN, null)
+          return
+        }
         const origin: ScriptOrigin =
           result.model === undefined
             ? { kind: 'compiled', provider: result.provider, descriptionHash: result.descriptionHash, at: now().toISOString() }
             : { kind: 'compiled', provider: result.provider, model: result.model, descriptionHash: result.descriptionHash, at: now().toISOString() }
         const committed = deps.store.commitScript(deps.cardId, result.script, origin)
-        if (!committed.ok) {
+        if (!committed.ok && committed.reason === 'storage') {
+          showError(SCRIPT_NOT_SAVED, null)
+        } else if (!committed.ok) {
           // Cannot happen (the service parsed the script), but never swallow it.
           showError(
             `The compiler produced a script that does not parse (line ${String(committed.error.line)}, column ${String(committed.error.column)}: ${committed.error.message}). The previous script is still running.`,
@@ -204,7 +230,10 @@ export function createDescriptionPanel(deps: DescriptionPanelDeps): DescriptionP
         save.disabled = false
         status.textContent = ''
         const card = deps.store.getCard(deps.cardId)
-        if (card !== undefined) panel.render(card)
+        if (card !== undefined) {
+          panel.render(card)
+          if (keepInput) input.value = description
+        }
       }
     },
   }

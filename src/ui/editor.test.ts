@@ -3,19 +3,26 @@ import { describe, expect, it } from 'vitest'
 import { createCardRuntime } from '../runtime'
 import { createCardStore, seedCards } from '../store'
 import { createCardView } from './cardView'
-import { createEditor } from './editor'
+import { COMMIT_NOT_SAVED, createEditor } from './editor'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 const EDITED = 'on openCard\n  put "Hello, Kiro!" into field "greeting"\nend openCard\n'
 const BROKEN = 'on openCard\n  put "Hello, Kiro!" into field "greeting"\nend mouseUp\n'
 
-function store() {
-  return createCardStore({ initial: seedCards(NOW), now: () => NOW })
+/** `storage.full` makes the store's write throw, as localStorage does when its quota is used up. */
+function store(storage = { full: false }) {
+  return createCardStore({
+    initial: seedCards(NOW),
+    now: () => NOW,
+    persist: () => {
+      if (storage.full) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    },
+  })
 }
 
 /** The editor alone, against a store. */
-function standalone(id = 'hello') {
-  const s = store()
+function standalone(id = 'hello', storage = { full: false }) {
+  const s = store(storage)
   const editor = createEditor({ store: s, cardId: id, now: () => NOW })
   document.body.replaceChildren(editor.element)
   const q = <T extends HTMLElement>(testid: string) => editor.element.querySelector<T>(`[data-testid="${testid}"]`)
@@ -25,8 +32,8 @@ function standalone(id = 'hello') {
 }
 
 /** The editor inside a running card view, so re-runs are observable. */
-function inCard(id = 'hello') {
-  const s = store()
+function inCard(id = 'hello', storage = { full: false }) {
+  const s = store(storage)
   const runtime = createCardRuntime({ cardCount: () => 6, onNavigate: () => undefined, now: () => NOW })
   const card = s.getCard(id)
   if (card === undefined) throw new Error(`no card ${id}`)
@@ -126,6 +133,86 @@ describe('createEditor', () => {
     editor.setDraft('')
     expect(textarea.value).toBe('')
     expect(q('parse-error')?.hidden).toBe(true)
+  })
+})
+
+// Task 19.1, requirement 8.2.
+describe('a Commit that storage refuses', () => {
+  it('says the script was not saved, keeps the draft and leaves the stored script', () => {
+    const storage = { full: true }
+    const { store: s, editor, q, textarea } = standalone('hello', storage)
+    const before = s.getCard('hello')
+    textarea.value = EDITED
+    expect(editor.commit()).toEqual({ kind: 'not-saved' })
+    expect(q('commit-error')?.hidden).toBe(false)
+    expect(q('commit-error')?.textContent).toBe(COMMIT_NOT_SAVED)
+    expect(COMMIT_NOT_SAVED).toBe(
+      "The script was not saved: the browser's storage is full or unavailable. The card still runs the stored script, and your draft is kept here.",
+    )
+    expect(q('commit-error')?.getAttribute('role')).toBe('alert')
+    expect(q('parse-error')?.hidden).toBe(true)
+    expect(textarea.value).toBe(EDITED)
+    expect(s.getCard('hello')).toBe(before)
+  })
+
+  it('replaces a parse error that was showing, and is replaced by the next one', () => {
+    const storage = { full: false }
+    const { editor, q, textarea } = standalone('hello', storage)
+    textarea.value = BROKEN
+    editor.commit()
+    storage.full = true
+    textarea.value = EDITED
+    editor.commit()
+    expect(q('parse-error')?.hidden).toBe(true)
+    expect(textarea.dataset['errorLine']).toBeUndefined()
+    expect(q('commit-error')?.hidden).toBe(false)
+    textarea.value = BROKEN
+    expect(editor.commit().kind).toBe('rejected')
+    expect(q('commit-error')?.hidden).toBe(true)
+    expect(q('commit-error')?.textContent).toBe('')
+    expect(q('parse-error')?.hidden).toBe(false)
+  })
+
+  it('goes away with a Commit that is stored, with an unchanged draft and with setDraft', () => {
+    const storage = { full: true }
+    const { store: s, editor, q, textarea } = standalone('hello', storage)
+    const original = textarea.value
+    textarea.value = EDITED
+    editor.commit()
+    textarea.value = original
+    expect(editor.commit()).toEqual({ kind: 'unchanged' })
+    expect(q('commit-error')?.hidden).toBe(true)
+
+    textarea.value = EDITED
+    editor.commit()
+    expect(q('commit-error')?.hidden).toBe(false)
+    editor.setDraft(original)
+    expect(q('commit-error')?.hidden).toBe(true)
+
+    textarea.value = EDITED
+    editor.commit()
+    storage.full = false
+    expect(editor.commit()).toEqual({ kind: 'committed' })
+    expect(q('commit-error')?.hidden).toBe(true)
+    expect(s.getCard('hello')?.script).toBe(EDITED)
+  })
+
+  it('does not re-run the card: the front, the stored view and the running program stay', () => {
+    const storage = { full: false }
+    const { q, textarea, runtime, store: s } = inCard('hello', storage)
+    const stored = s.getCard('hello')?.script
+    const field = q<HTMLTextAreaElement>('field-greeting')
+    if (field === null) throw new Error('no field')
+    field.value = 'typed on the front'
+    storage.full = true
+    textarea.value = EDITED
+    q<HTMLButtonElement>('commit-script')?.click()
+    expect(q('commit-error')?.textContent).toBe(COMMIT_NOT_SAVED)
+    expect(field.value).toBe('typed on the front')
+    expect(q('stored-script')?.textContent).toBe(stored)
+    expect(runtime.currentProgram('hello')?.source).toBe(stored)
+    expect(q('script-origin')?.textContent).toBe('bundled example')
+    expect(textarea.value).toBe(EDITED)
   })
 })
 

@@ -34,8 +34,8 @@ describe('commitScript', () => {
     const { store: s, persist, changes } = store()
     const before = structuredClone(s.getCard('a'))
     const result = s.commitScript('a', INVALID, { kind: 'edited', at: NOW.toISOString() })
-    expect(result).toMatchObject({ ok: false, card: before })
-    if (!result.ok) {
+    expect(result).toMatchObject({ ok: false, reason: 'parse', card: before })
+    if (!result.ok && result.reason === 'parse') {
       expect(result.error).toEqual({ line: 3, column: 5, message: 'expected "end openCard", found "end mouseUp"', near: 'end mouseUp' })
     }
     expect(s.getCard('a')).toEqual(before)
@@ -165,5 +165,90 @@ describe('commit success', () => {
     s.commitScript('b', '', { kind: 'edited', at: NOW.toISOString() })
     expect(before.script).toBe(VALID)
     expect(s.getCard('b')).not.toBe(before)
+  })
+})
+
+// Task 19.1, requirement 8.1: the store writes first and changes its cards
+// second, so a write that storage refuses leaves no trace (design.md §3.1).
+describe('a write that storage refuses', () => {
+  function refusing() {
+    const state = { full: true }
+    const written: string[] = []
+    const changes: StoreChange[] = []
+    const s = createCardStore({
+      initial: [card('b', 2, VALID), card('a', 1)],
+      seed: () => [card('a', 1, VALID), card('b', 2)],
+      now: () => NOW,
+      persist: (cards) => {
+        if (state.full) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+        written.push(JSON.stringify(cards))
+      },
+    })
+    s.subscribe((change) => changes.push(change))
+    return { store: s, state, written, changes }
+  }
+
+  it('commitScript returns reason storage, keeps the very same cards and notifies nobody', () => {
+    const { store: s, written, changes } = refusing()
+    const cards = s.getCards()
+    const before = s.getCard('a')
+    const result = s.commitScript('a', VALID, { kind: 'edited', at: NOW.toISOString() })
+    expect(result).toEqual({ ok: false, reason: 'storage', card: before })
+    expect(s.getCards()).toBe(cards)
+    expect(s.getCard('a')).toBe(before)
+    expect(s.getCard('a')?.script).toBe('')
+    expect(changes).toEqual([])
+    expect(written).toEqual([])
+  })
+
+  it('saveDescription returns reason storage, keeps the very same cards and notifies nobody', () => {
+    const { store: s, changes } = refusing()
+    const cards = s.getCards()
+    expect(s.saveDescription('a', 'new words')).toEqual({ ok: false, reason: 'storage' })
+    expect(s.getCards()).toBe(cards)
+    expect(s.getCard('a')?.description).toBe('card a')
+    expect(changes).toEqual([])
+  })
+
+  it('resetToSeed returns reason storage, keeps the very same cards and notifies nobody', () => {
+    const { store: s, changes } = refusing()
+    const cards = s.getCards()
+    expect(s.resetToSeed()).toEqual({ ok: false, reason: 'storage' })
+    expect(s.getCards()).toBe(cards)
+    expect(s.getCard('b')?.script).toBe(VALID)
+    expect(changes).toEqual([])
+  })
+
+  it('a parse error is still reported as a parse error when storage is full, and nothing is written', () => {
+    const { store: s, written } = refusing()
+    expect(s.commitScript('a', INVALID, { kind: 'edited', at: NOW.toISOString() })).toMatchObject({ ok: false, reason: 'parse' })
+    expect(written).toEqual([])
+  })
+
+  it('makes each change once storage takes the write again, and reports ok', () => {
+    const { store: s, state, written, changes } = refusing()
+    s.commitScript('a', VALID, { kind: 'edited', at: NOW.toISOString() })
+    state.full = false
+    expect(s.saveDescription('a', 'new words')).toEqual({ ok: true })
+    expect(s.commitScript('a', VALID, { kind: 'edited', at: NOW.toISOString() }).ok).toBe(true)
+    expect(s.getCard('a')).toMatchObject({ description: 'new words', script: VALID })
+    expect(written).toHaveLength(2)
+    expect(written[1]).toBe(JSON.stringify(s.getCards()))
+    expect(s.resetToSeed()).toEqual({ ok: true })
+    expect(s.getCard('b')?.script).toBe('')
+    expect(changes).toEqual([{ kind: 'description', id: 'a' }, { kind: 'script', id: 'a' }, { kind: 'reset' }])
+  })
+
+  it('hands persist the cards the change would leave, before it takes them over', () => {
+    const seen: Array<{ next: string | undefined; current: string | undefined }> = []
+    const s = createCardStore({
+      initial: [card('a', 1)],
+      now: () => NOW,
+      persist: (cards) => {
+        seen.push({ next: cards[0]?.script, current: s.getCard('a')?.script })
+      },
+    })
+    s.commitScript('a', VALID, { kind: 'edited', at: NOW.toISOString() })
+    expect(seen).toEqual([{ next: VALID, current: '' }])
   })
 })
