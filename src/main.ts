@@ -17,7 +17,7 @@ if (root !== null) {
   let app: ReturnType<typeof createApp> | null = null
   const runtime = createCardRuntime({
     cardCount: () => store.getCards().length,
-    onNavigate: (n) => app?.go(n),
+    onNavigate: (n, sentOnBy) => app?.go(n, sentOnBy),
   })
   app = createApp(root, { store, runtime, storage: localStorage })
   app.go(1)

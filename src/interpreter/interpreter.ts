@@ -1,13 +1,17 @@
 // Tree-walking interpreter (design.md §5.2): runs one handler of a Program
 // against a Host. Synchronous; runtime errors are returned, never thrown,
 // and side effects already performed stay. A statement budget of 10,000
-// keeps the UI responsive (grammar §7).
+// keeps the UI responsive, and a dialog budget of 10 keeps a loop around
+// `answer` from queueing thousands of dialogs (grammar §7).
 import type { HandlerName, IfStatement, Position, Program, RepeatStatement, Statement } from '../parser'
 import { evaluate, type EvalContext } from './evaluate'
 import type { Host } from './host'
 import { checkLength, renderNumber, toBoolean, toNumber } from './values'
 
 export const STATEMENT_BUDGET = 10_000
+
+/** How many `answer` dialogs one run of a handler may ask for (requirement 7.6). */
+export const DIALOG_BUDGET = 10
 
 export interface RunOptions {
   /** The clicked button's name; '' for openCard. */
@@ -34,13 +38,15 @@ class Stop extends Error {
 
 class Execution {
   statements = 0
+  /** `answer` statements executed in this run. */
+  dialogs = 0
   readonly context: EvalContext
 
   constructor(
     readonly host: Host,
     target: string,
   ) {
-    this.context = { host, variables: new Map(), target }
+    this.context = { host, variables: new Map(), target, work: { units: 0 } }
   }
 
   /** Charges one statement to the budget; stops the run when it is spent. */
@@ -114,6 +120,12 @@ class Execution {
         this.context.variables.set('it', this.value(statement.value))
         return
       case 'answer':
+        // The host queues dialogs and shows them after the run, one OK each:
+        // without a limit, a loop here would queue 5,000 of them.
+        if (this.dialogs >= DIALOG_BUDGET) {
+          throw new Stop(statement, `too many answer dialogs (limit ${String(DIALOG_BUDGET)})`)
+        }
+        this.dialogs += 1
         this.host.answer(this.value(statement.value))
         return
       case 'go': {

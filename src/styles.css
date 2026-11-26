@@ -476,6 +476,21 @@ body {
   padding: 8px 12px;
 }
 
+.moved-notice {
+  background: #fff;
+  border: 1px solid #000;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+}
+
+.moved-notice[hidden] {
+  display: none;
+}
+
+.moved-notice button {
+  margin: 2px 4px 2px 0;
+}
+
 button {
   border: 1px solid #000;
   border-radius: 8px;

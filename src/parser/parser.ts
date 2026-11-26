@@ -156,6 +156,10 @@ function parseIf(cursor: Cursor): IfStatement {
   cursor.expectKeyword('then')
   if (cursor.peek().kind === 'newline') {
     cursor.next()
+    // One level for the bodies (design.md §4.4), placed at `if`. It opens only
+    // now because the form is known only after `then`; the condition sits at the
+    // enclosing level, like a repeat head below.
+    cursor.enter(ifToken)
     const thenBody = parseStatements(cursor, 'end if', true)
     let elseBody: Statement[] | null = null
     if (cursor.isKeyword('else')) {
@@ -164,6 +168,7 @@ function parseIf(cursor: Cursor): IfStatement {
       elseBody = parseStatements(cursor, 'end if', false)
     }
     expectEnd(cursor, 'if')
+    cursor.leave()
     return { kind: 'if', form: 'block', condition, then: thenBody, else: elseBody, ...position }
   }
   const thenStatement = parseSingleLineBranch(cursor)
@@ -201,8 +206,10 @@ function parseRepeat(cursor: Cursor): RepeatStatement {
   const repeatToken = cursor.next()
   const head = parseRepeatHead(cursor)
   cursor.expectNewline()
+  cursor.enter(repeatToken)
   const body = parseStatements(cursor, 'end repeat', false)
   expectEnd(cursor, 'repeat')
+  cursor.leave()
   return { kind: 'repeat', head, body, line: repeatToken.line, column: repeatToken.column }
 }
 

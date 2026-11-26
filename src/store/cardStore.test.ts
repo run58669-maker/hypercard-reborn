@@ -112,6 +112,39 @@ describe('change notifications', () => {
     expect(seen).toEqual([{ kind: 'description', id: 'a' }, { kind: 'script', id: 'a' }, { kind: 'reset' }])
     expect(changes).toHaveLength(4)
   })
+
+  // Task 18.3, design.md §3.1: a change goes to the subscribers the store had
+  // when it was made. Iterating the live set let a view that was created while
+  // a commit was being delivered re-run the card again, without end (§5.6).
+  it('does not deliver a change to a subscriber added while it is being delivered', () => {
+    const { store: s } = store()
+    const late: StoreChange[] = []
+    let added = 0
+    s.subscribe(() => {
+      added += 1
+      if (added > 10) throw new Error('the change keeps being delivered to new subscribers')
+      s.subscribe((c) => late.push(c))
+    })
+    s.saveDescription('a', 'd')
+    expect(late).toEqual([])
+    expect(added).toBe(1)
+    s.saveDescription('a', 'e')
+    expect(late).toEqual([{ kind: 'description', id: 'a' }])
+  })
+
+  it('does not call a subscriber that an earlier one removed during delivery', () => {
+    const { store: s } = store()
+    const calls: string[] = []
+    const stops: Array<() => void> = []
+    s.subscribe(() => {
+      calls.push('first')
+      stops.forEach((stop) => { stop() })
+    })
+    stops.push(s.subscribe(() => calls.push('second')))
+    s.subscribe(() => calls.push('third'))
+    s.saveDescription('a', 'd')
+    expect(calls).toEqual(['first', 'third'])
+  })
 })
 
 describe('commit success', () => {

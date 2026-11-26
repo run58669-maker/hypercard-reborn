@@ -121,8 +121,8 @@ Notes:
 - `set visible of field "x" to false` is equivalent to `hide field "x"`.
 - `go to card N` sends `openCard` to card N after the current handler finishes. If N
   is out of range it is a runtime error and the current card stays.
-- Nesting depth of `if` and `repeat` is unlimited by the grammar; the interpreter caps
-  total statement executions (§7).
+- Nesting depth of `if` and `repeat` is unlimited by the grammar but capped by the
+  parser (§6); the interpreter caps total statement executions (§7).
 
 ## 4. Expressions
 
@@ -217,6 +217,8 @@ The parser returns the **first** error it meets, never a list, with:
 
 Error messages must be stable: tests assert on them, and the flipped card shows them verbatim.
 
+A script may nest at most 64 levels. Counting down any one path from the handler to its innermost expression, each `(`, `not`, unary `-`, binary operator, and enclosing block `if` or `repeat` adds one level; deeper is the parse error `expression too long or nested too deeply (limit 64)` at the token that would open level 65. A chain counts one level per operator, so `a & b & c` is two levels and a chain of 65 operators is refused: build a long value in several statements (`put x & "more" into x`).
+
 ## 7. Runtime limits
 
 These keep the card UI responsive and are **not** part of the grammar.
@@ -224,8 +226,11 @@ These keep the card UI responsive and are **not** part of the grammar.
 | Limit | Value |
 |---|---|
 | Statements executed per handler invocation | 10,000 (exceeding it is a runtime error: `script ran too long`) |
+| Expression work per handler invocation | 1,000,000 units: one per expression node evaluated, plus one per 256 UTF-16 code units of each value an expression yields (exceeding it is the same runtime error, `script ran too long`) |
 | `repeat forever` | Allowed, but subject to the statement cap |
-| String length | 64 KiB (65,536 UTF-16 code units) per value; exceeding it is the runtime error `value too long` |
+| `answer` dialogs per handler invocation | 10 (the eleventh `answer` is the runtime error `too many answer dialogs (limit 10)`) |
+| `go to card` from `openCard` | Not performed when the same card's `openCard` has already sent the stack on since the last user action, or when 16 `openCard` handlers have. The card then shows `Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.` A `go to card` from `mouseUp` is not counted. No `go to card` is performed when its handler then stops with a runtime error |
+| String length | 64 KiB (65,536 UTF-16 code units) for every value an expression yields, a literal or a field read included; exceeding it is the runtime error `value too long` |
 
 The complete list of runtime error messages lives in `.kiro/specs/flip-card/design.md` §5.4.
 

@@ -4,6 +4,12 @@
 // left-associative; a comparison takes at most one operator (`a = b = c` is a
 // parse error, write `(a = b) = c`). After `is`, a following `not` always
 // belongs to the operator (`a is not b`).
+//
+// Nesting limit (design.md §4.4): `(`, `not` and unary `-` each open one level
+// around what they enclose. Each binary operator's node sits one level above
+// the deepest level its left operand reached (`chainOperator`), and its right
+// operand is parsed one level in, so a parse that succeeds never builds a tree
+// deeper than MAX_NESTING levels, however the levels are spent.
 import type { BinaryOperator, BuiltinName, ConstantName, Expression, ObjectRef } from './ast'
 import type { Token } from './lexer'
 import type { Cursor } from './tokens'
@@ -49,28 +55,39 @@ function symbolOperator(token: Token, symbols: readonly BinaryOperator[]): Binar
 }
 
 function parseOr(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   let left = parseAnd(cursor)
   while (keywordOperator(cursor, cursor.peek(), ['or']) !== undefined) {
-    cursor.next()
+    const token = cursor.next()
+    cursor.chainOperator(token)
+    cursor.enter(token)
     left = binary('or', left, parseAnd(cursor))
+    cursor.leave()
   }
+  cursor.endChain(outer)
   return left
 }
 
 function parseAnd(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   let left = parseNot(cursor)
   while (keywordOperator(cursor, cursor.peek(), ['and']) !== undefined) {
-    cursor.next()
+    const token = cursor.next()
+    cursor.chainOperator(token)
+    cursor.enter(token)
     left = binary('and', left, parseNot(cursor))
+    cursor.leave()
   }
+  cursor.endChain(outer)
   return left
 }
 
 function parseNot(cursor: Cursor): Expression {
   const token = cursor.peek()
   if (cursor.isKeyword('not')) {
-    cursor.next()
+    cursor.enter(cursor.next())
     const operand = parseNot(cursor)
+    cursor.leave()
     return { kind: 'unary', operator: 'not', operand, line: token.line, column: token.column }
   }
   return parseComparison(cursor)
@@ -79,61 +96,87 @@ function parseNot(cursor: Cursor): Expression {
 const COMPARISON_SYMBOLS: readonly BinaryOperator[] = ['=', '<>', '<', '>', '<=', '>=']
 
 function parseComparison(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   const left = parseConcat(cursor)
   const token = cursor.peek()
-  const symbol = symbolOperator(token, COMPARISON_SYMBOLS)
-  if (symbol !== undefined) {
+  let operator = symbolOperator(token, COMPARISON_SYMBOLS)
+  if (operator !== undefined) {
     cursor.next()
-    return binary(symbol, left, parseConcat(cursor))
-  }
-  if (cursor.isKeyword('is')) {
+  } else if (cursor.isKeyword('is')) {
     cursor.next()
-    let operator: BinaryOperator = 'is'
+    operator = 'is'
     if (cursor.isKeyword('not')) {
       cursor.next()
       operator = 'is not'
     }
-    return binary(operator, left, parseConcat(cursor))
   }
+  if (operator !== undefined) {
+    cursor.chainOperator(token)
+    cursor.enter(token)
+    const right = parseConcat(cursor)
+    cursor.leave()
+    cursor.endChain(outer)
+    return binary(operator, left, right)
+  }
+  cursor.endChain(outer)
   return left
 }
 
 function parseConcat(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   let left = parseAdditive(cursor)
   for (;;) {
     const operator = symbolOperator(cursor.peek(), ['&&', '&'])
-    if (operator === undefined) return left
-    cursor.next()
+    if (operator === undefined) break
+    const token = cursor.next()
+    cursor.chainOperator(token)
+    cursor.enter(token)
     left = binary(operator, left, parseAdditive(cursor))
+    cursor.leave()
   }
+  cursor.endChain(outer)
+  return left
 }
 
 function parseAdditive(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   let left = parseTerm(cursor)
   for (;;) {
     const operator = symbolOperator(cursor.peek(), ['+', '-'])
-    if (operator === undefined) return left
-    cursor.next()
+    if (operator === undefined) break
+    const token = cursor.next()
+    cursor.chainOperator(token)
+    cursor.enter(token)
     left = binary(operator, left, parseTerm(cursor))
+    cursor.leave()
   }
+  cursor.endChain(outer)
+  return left
 }
 
 function parseTerm(cursor: Cursor): Expression {
+  const outer = cursor.startChain()
   let left = parseUnary(cursor)
   for (;;) {
     const token = cursor.peek()
     const operator = symbolOperator(token, ['*', '/']) ?? keywordOperator(cursor, token, ['div', 'mod'])
-    if (operator === undefined) return left
+    if (operator === undefined) break
     cursor.next()
+    cursor.chainOperator(token)
+    cursor.enter(token)
     left = binary(operator, left, parseUnary(cursor))
+    cursor.leave()
   }
+  cursor.endChain(outer)
+  return left
 }
 
 function parseUnary(cursor: Cursor): Expression {
   const token = cursor.peek()
   if (cursor.isOperator('-')) {
-    cursor.next()
+    cursor.enter(cursor.next())
     const operand = parseUnary(cursor)
+    cursor.leave()
     return { kind: 'unary', operator: '-', operand, line: token.line, column: token.column }
   }
   return parsePrimary(cursor)
@@ -172,9 +215,10 @@ function parsePrimary(cursor: Cursor): Expression {
       return { kind: 'variable', name: token.text, ...position }
     case 'operator':
       if (token.text === '(') {
-        cursor.next()
+        cursor.enter(cursor.next())
         const inner = parseExpression(cursor)
         cursor.expectOperator(')')
+        cursor.leave()
         return inner
       }
       return cursor.expected('an expression')

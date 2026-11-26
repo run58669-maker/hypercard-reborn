@@ -25,8 +25,24 @@ export function found(token: Token): string {
   }
 }
 
+/**
+ * The deepest a script may nest (design.md §4.4, requirement 7.4). The tree
+ * the parser returns is never deeper than this many levels, so every
+ * recursive walk over it (interpreter, printer, object check) stays far from
+ * the engine's stack limit.
+ */
+export const MAX_NESTING = 64
+
 export class Cursor {
   private index = 0
+  /** Levels open at the current token (design.md §4.4). */
+  private depth = 0
+  /**
+   * The deepest level reached since the innermost open chain started (see
+   * `startChain`). A chain reads it to place each operator's node one level
+   * above everything its left operand reached.
+   */
+  private reached = 0
 
   constructor(
     private readonly source: string,
@@ -88,6 +104,48 @@ export class Cursor {
   expectNewline(): Token {
     if (this.peek().kind !== 'newline') this.expected('newline')
     return this.next()
+  }
+
+  /** Opens one level at `token`; fails there if that is level MAX_NESTING + 1. */
+  enter(token: Token): void {
+    this.depth += 1
+    this.reach(this.depth, token)
+  }
+
+  /** Closes levels opened by `enter`. Not needed on the error path: a Cursor serves one parse. */
+  leave(levels = 1): void {
+    this.depth -= levels
+  }
+
+  /**
+   * Starts a left-associative chain (or a comparison) at the current depth.
+   * Returns what `endChain` restores.
+   */
+  startChain(): number {
+    const outer = this.reached
+    this.reached = this.depth
+    return outer
+  }
+
+  /**
+   * An operator applied in the chain at `token`. Its node sits one level above
+   * the deepest level its left operand reached, which may be far above the
+   * chain's start when that operand is parenthesised or is itself a chain.
+   * Fails at `token` if that is level MAX_NESTING + 1.
+   */
+  chainOperator(token: Token): void {
+    this.reach(this.reached + 1, token)
+  }
+
+  /** Ends the chain started by `startChain`, keeping what it reached for any enclosing chain. */
+  endChain(outer: number): void {
+    this.reached = Math.max(outer, this.reached)
+  }
+
+  private reach(level: number, token: Token): void {
+    // "too long" because a flat chain of 65 operators is 65 levels as well (design.md §4.4).
+    if (level > MAX_NESTING) this.fail(`expression too long or nested too deeply (limit ${String(MAX_NESTING)})`, token)
+    if (level > this.reached) this.reached = level
   }
 
   skipNewlines(): void {

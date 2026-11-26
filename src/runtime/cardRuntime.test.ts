@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
+import type { RunResult } from '../interpreter'
 import { seedCards } from '../store'
 import type { Card } from '../store'
-import { createCardRuntime, type CardMount } from './cardRuntime'
+import { createCardRuntime, HELD_MESSAGE, MAX_SCRIPTED_MOVES, NAVIGATION_LOOP_MESSAGE, type CardMount, type CardRuntime } from './cardRuntime'
 
 const NOW = new Date(2026, 10, 1, 15, 4)
 
@@ -74,7 +75,42 @@ describe('CardRuntime', () => {
     expect(m.root.querySelector('[data-testid="answer-dialog"]')).toBeNull()
     expect(runtime.dialogOpen()).toBe(false)
     expect(onNavigate).toHaveBeenCalledTimes(1)
-    expect(onNavigate).toHaveBeenCalledWith(2)
+    // A button asked: no openCard has moved the stack on.
+    expect(onNavigate).toHaveBeenCalledWith(2, [])
+  })
+
+  it('tells onNavigate which cards\' openCard moved the stack on', () => {
+    const { runtime, m, onNavigate } = setup()
+    runtime.run({ ...card('counter'), script: 'on openCard\n  go to card 1\nend openCard\n' }, m)
+    expect(onNavigate).toHaveBeenCalledWith(1, ['counter'])
+  })
+
+  it('hold mounts a card without running openCard: objects and buttons are there, the status line says so', () => {
+    const { runtime, m, q, onNavigate, onResult } = setup()
+    const custom: Card = {
+      ...card('counter'),
+      script: 'on openCard\n  go to card 1\nend openCard\n\non mouseUp\n  put "pressed" into field "count"\nend mouseUp\n',
+    }
+    runtime.hold(custom, m)
+    expect(onResult).not.toHaveBeenCalled()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe(HELD_MESSAGE)
+    expect(runtime.currentProgram('counter')?.source).toBe(custom.script)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('pressed')
+
+    // A commit re-runs it like any mounted card.
+    runtime.rerun({ ...custom, script: 'on openCard\n  put "ran" into field "count"\nend openCard\n' })
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('ran')
+    expect(q('status-line')?.textContent).toBe('')
+  })
+
+  it('hold keeps the stored-script message of a script that does not parse, and a re-run repairs it', () => {
+    const { runtime, m, q } = setup()
+    runtime.hold({ ...card('hello'), script: 'on openCard\n  put\n' }, m)
+    expect(q('status-line')?.textContent).toContain('Stored script does not parse')
+    runtime.rerun({ ...card('hello'), script: 'on openCard\n  put "ok" into field "greeting"\nend openCard\n' })
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('ok')
   })
 
   it('closes a dialog on Enter', () => {
@@ -113,6 +149,72 @@ describe('CardRuntime', () => {
     expect(result.ok).toBe(false)
     expect(q('status-line')?.textContent).toBe('Runtime error in openCard, line 2: field "nope" does not exist')
     expect(onResult).toHaveBeenCalledWith('hello', 'openCard', result)
+  })
+
+  it('does not navigate when the handler stops with an error after go to card, and keeps the error on the card', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = {
+      ...card('hello'),
+      script: 'on openCard\n  answer "before"\n  go to card 2\n  go to card 99\nend openCard\n',
+    }
+    const result = runtime.run(custom, m)
+    expect(result.ok).toBe(false)
+    // The dialog queued before the error is still shown.
+    expect(q('answer-dialog')?.querySelector('p')?.textContent).toBe('before')
+    q<HTMLButtonElement>('answer-ok')?.click()
+    expect(q('answer-dialog')).toBeNull()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe('Runtime error in openCard, line 4: card 99 does not exist')
+
+    // The dropped request is not left behind for the next run of the same card.
+    runtime.rerun({ ...custom, script: 'on openCard\n  put "ok" into field "greeting"\nend openCard\n' })
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate from mouseUp either when the handler stops with an error', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = {
+      ...card('counter'),
+      script: 'on mouseUp\n  go to card 1\n  put field "nope" into x\nend mouseUp\n',
+    }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(q('status-line')?.textContent).toBe('Runtime error in mouseUp, line 3: field "nope" does not exist')
+  })
+
+  it('forgets the request of a failed mouseUp: the next press, which succeeds without go, does not navigate', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    // The first press fails after go to card 1; it wrote the field first, so the second press takes the other branch.
+    const custom: Card = {
+      ...card('counter'),
+      script:
+        'on mouseUp\n  if field "count" is "again" then\n    put "done" into field "count"\n  else\n    put "again" into field "count"\n    go to card 1\n    put field "nope" into x\n  end if\nend mouseUp\n',
+    }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q('status-line')?.textContent).toBe('Runtime error in mouseUp, line 7: field "nope" does not exist')
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q<HTMLInputElement>('field-count')?.value).toBe('done')
+    expect(q('status-line')?.textContent).toBe('')
+    expect(onNavigate).not.toHaveBeenCalled()
+  })
+
+  it('treats a dialog the browser closed by itself like OK', () => {
+    const { runtime, m, q, onNavigate } = setup()
+    const custom: Card = { ...card('counter'), script: 'on mouseUp\n  answer "hi"\n  go to card 1\nend mouseUp\n' }
+    runtime.run(custom, m)
+    q<HTMLButtonElement>('button-increment')?.click()
+    const dialog = q<HTMLDialogElement>('answer-dialog')
+    if (dialog === null) throw new Error('no dialog')
+    // No cancel event and no click: only the close event that every closing fires.
+    dialog.dispatchEvent(new Event('close'))
+    expect(q('answer-dialog')).toBeNull()
+    expect(runtime.dialogOpen()).toBe(false)
+    expect(onNavigate).toHaveBeenCalledTimes(1)
+    // The card's buttons work again.
+    q<HTMLButtonElement>('button-increment')?.click()
+    expect(q('answer-dialog')).not.toBeNull()
   })
 
   it('clears the status line on a successful handler', () => {
@@ -178,5 +280,327 @@ describe('CardRuntime', () => {
     expect(q('button-greet')).toBeNull()
     expect(runtime.currentProgram('greeter')).toBeUndefined()
     expect(runtime.click('greeter', 'Greet')).toBeUndefined()
+  })
+})
+
+// Task 18.3: design.md §5.6, requirements 7.1 to 7.3 and 7.7.
+
+const STOPPED = 'Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.'
+
+const onOpen = (body: string): string => `on openCard\n  ${body}\nend openCard\n`
+const onPress = (body: string): string => `on mouseUp\n  ${body}\nend mouseUp\n`
+const goTo = (n: number): string => `go to card ${String(n)}`
+const range = (from: number, to: number): number[] => Array.from({ length: to - from + 1 }, (_, index) => from + index)
+
+/** `count` scripts; the cards numbered `from` to `to` send the stack to the next card from openCard, the others are empty. */
+function relay(count: number, from: number, to: number): string[] {
+  return range(1, count).map((n) => (n >= from && n <= to ? onOpen(goTo(n + 1)) : ''))
+}
+
+interface Stack {
+  readonly runtime: CardRuntime
+  /** The numbers of the cards whose openCard ran, in order. */
+  readonly opened: readonly number[]
+  /** Shows card n, as Previous and Next do. */
+  show(n: number): RunResult
+  /** Presses the button of the card that is showing. */
+  press(): void
+  /** Gives card n a new script and re-runs it, as the view does after a commit. */
+  commit(n: number, script: string): RunResult
+  /** Re-runs the card that is showing. */
+  refresh(): void
+  /** The number of the card that is showing. */
+  number(): number | undefined
+  /** The status line of the card that is showing. */
+  status(): string | null | undefined
+  q<T extends HTMLElement>(testid: string): T | null
+}
+
+/**
+ * A stack whose cards carry the given scripts, shown one card at a time the
+ * way the app shows them: a navigation unmounts the card that is showing and
+ * runs the target on a mount of its own. Every card has a field "log" and a
+ * button "go". `afterNavigate` is what the host does once the target has been
+ * shown; the app does nothing.
+ */
+function stack(scripts: readonly string[], afterNavigate: (host: Stack) => void = () => undefined): Stack {
+  const cards: Card[] = scripts.map((script, index) => ({
+    id: `c${String(index + 1)}`,
+    number: index + 1,
+    name: `Card ${String(index + 1)}`,
+    description: '',
+    script,
+    scriptOrigin: { kind: 'seed' },
+    objects: [
+      { kind: 'field', name: 'log', visible: true, text: '', rect: { x: 0, y: 0, w: 100, h: 20 } },
+      { kind: 'button', name: 'go', visible: true, rect: { x: 0, y: 30, w: 100, h: 20 } },
+    ],
+    updatedAt: NOW.toISOString(),
+  }))
+  const opened: number[] = []
+  let showing: { readonly card: Card; readonly m: ReturnType<typeof mount> } | null = null
+  const runtime = createCardRuntime({
+    cardCount: () => cards.length,
+    onNavigate: (n) => {
+      host.show(n)
+      afterNavigate(host)
+    },
+    onResult: (id, handler) => {
+      if (handler !== 'openCard') return
+      opened.push(Number(id.slice(1)))
+      // A chain the runtime fails to stop ends here, with a message, and not in a stack overflow.
+      if (opened.length > 200) throw new Error('openCard ran more than 200 times')
+    },
+    now: () => NOW,
+  })
+  const host: Stack = {
+    runtime,
+    opened,
+    show(n) {
+      const card = cards[n - 1]
+      if (card === undefined) throw new Error(`no card ${String(n)}`)
+      if (showing !== null) {
+        runtime.unmount(showing.card.id)
+        showing.m.root.remove()
+      }
+      const m = mount()
+      showing = { card, m }
+      return runtime.run(card, m)
+    },
+    press() {
+      const button = host.q<HTMLButtonElement>('button-go')
+      if (button === null) throw new Error('no button on the card that is showing')
+      button.click()
+    },
+    commit(n, script) {
+      const card = cards[n - 1]
+      if (card === undefined) throw new Error(`no card ${String(n)}`)
+      const updated: Card = { ...card, script }
+      cards[n - 1] = updated
+      if (showing?.card.id === updated.id) showing = { card: updated, m: showing.m }
+      return runtime.rerun(updated)
+    },
+    refresh() {
+      if (showing !== null) runtime.rerun(showing.card)
+    },
+    number: () => showing?.card.number,
+    status: () => showing?.m.statusLine.textContent,
+    q: <T extends HTMLElement>(testid: string) => showing?.m.root.querySelector<T>(`[data-testid="${testid}"]`) ?? null,
+  }
+  return host
+}
+
+describe('a chain of openCard handlers that send the stack on', () => {
+  it('exports the limit and the message of requirement 7.1', () => {
+    expect(MAX_SCRIPTED_MOVES).toBe(16)
+    expect(NAVIGATION_LOOP_MESSAGE).toBe(STOPPED)
+  })
+
+  it('stops a card that sends the stack to itself: it returns, the card shows, the status line says why', () => {
+    const s = stack([onOpen(goTo(1))])
+    const result = s.show(1)
+    expect(result).toEqual({ ok: true, statements: 1 })
+    expect(s.opened).toEqual([1, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  it('stops two cards that send the stack to each other, on the card that asked twice', () => {
+    const s = stack([onOpen(goTo(2)), onOpen(goTo(1))])
+    s.show(1)
+    expect(s.opened).toEqual([1, 2, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  it('does not take the OK of a dialog for a user action: the dialog shows twice, then the message', () => {
+    const s = stack([onOpen('answer "hi"\n  go to card 1')])
+    s.show(1)
+    for (let shown = 1; shown <= 2; shown += 1) {
+      expect(s.q('answer-dialog')?.querySelector('p')?.textContent).toBe('hi')
+      expect(s.status()).toBe('')
+      expect(s.opened).toHaveLength(shown)
+      s.q<HTMLButtonElement>('answer-ok')?.click()
+    }
+    expect(s.q('answer-dialog')).toBeNull()
+    expect(s.runtime.dialogOpen()).toBe(false)
+    expect(s.opened).toEqual([1, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  it('performs the move a button asks for and the move the target card asks for in turn', () => {
+    const s = stack([onPress(goTo(2)), onOpen(goTo(3)), onOpen('put "three" into field "log"')])
+    s.show(1)
+    s.press()
+    expect(s.opened).toEqual([1, 2, 3])
+    expect(s.number()).toBe(3)
+    expect(s.status()).toBe('')
+    expect(s.q<HTMLTextAreaElement>('field-log')?.value).toBe('three')
+  })
+
+  it('starts a new chain at every press of a button, by a click or by click()', () => {
+    const s = stack([onPress(goTo(2)), onOpen(goTo(1))])
+    s.show(1)
+    s.press()
+    expect(s.opened).toEqual([1, 2, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe('')
+    s.press()
+    expect(s.opened).toEqual([1, 2, 1, 2, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe('')
+    expect(s.runtime.click('c1', 'go')?.ok).toBe(true)
+    expect(s.opened).toEqual([1, 2, 1, 2, 1, 2, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe('')
+  })
+
+  it('performs 16 moves in a row', () => {
+    const s = stack(relay(17, 1, 16))
+    s.show(1)
+    expect(s.opened).toEqual(range(1, 17))
+    expect(s.number()).toBe(17)
+    expect(s.status()).toBe('')
+  })
+
+  it('stops the 17th move of a chain that no card repeats: 40 cards, the message is on card 17', () => {
+    const s = stack(relay(40, 1, 39))
+    s.show(1)
+    expect(s.opened).toEqual(range(1, 17))
+    expect(s.number()).toBe(17)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  it('does not count the move a button asked for: a press can be followed by 16 moves, not by 17', () => {
+    const s = stack([onPress(goTo(2)), ...relay(18, 2, 17).slice(1)])
+    s.show(1)
+    s.press()
+    expect(s.opened).toEqual(range(1, 18))
+    expect(s.number()).toBe(18)
+    expect(s.status()).toBe('')
+
+    const longer = stack([onPress(goTo(2)), ...relay(19, 2, 18).slice(1)])
+    longer.show(1)
+    longer.press()
+    expect(longer.opened).toEqual(range(1, 18))
+    expect(longer.number()).toBe(18)
+    expect(longer.status()).toBe(STOPPED)
+  })
+
+  it('starts afresh when the user moves on after a stop', () => {
+    const s = stack([onOpen(goTo(1)), onOpen('put "two" into field "log"')])
+    s.show(1)
+    expect(s.status()).toBe(STOPPED)
+    s.show(2)
+    expect(s.number()).toBe(2)
+    expect(s.status()).toBe('')
+    expect(s.q<HTMLTextAreaElement>('field-log')?.value).toBe('two')
+    s.show(1)
+    expect(s.opened).toEqual([1, 1, 2, 1, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  it('clears the message when a commit gives the card a script that stays', () => {
+    const s = stack([onOpen(goTo(1))])
+    s.show(1)
+    expect(s.status()).toBe(STOPPED)
+    expect(s.commit(1, onOpen('put "fixed" into field "log"'))).toEqual({ ok: true, statements: 1 })
+    expect(s.opened).toEqual([1, 1, 1])
+    expect(s.status()).toBe('')
+    expect(s.q<HTMLTextAreaElement>('field-log')?.value).toBe('fixed')
+  })
+
+  it('starts afresh at a commit: after a stop, a script that sends the stack to another card is obeyed', () => {
+    const s = stack([onOpen(goTo(1)), onOpen('put "two" into field "log"')])
+    s.show(1)
+    expect(s.status()).toBe(STOPPED)
+    s.commit(1, onOpen(goTo(2)))
+    expect(s.opened).toEqual([1, 1, 1, 2])
+    expect(s.number()).toBe(2)
+    expect(s.status()).toBe('')
+    expect(s.q<HTMLTextAreaElement>('field-log')?.value).toBe('two')
+  })
+
+  it('stops a looping script that a commit brings in: openCard runs twice, then the message', () => {
+    const s = stack([''])
+    s.show(1)
+    expect(s.opened).toEqual([1])
+    s.commit(1, onOpen(goTo(1)))
+    expect(s.opened).toEqual([1, 1, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+
+  // The app runs one card per navigation. The runtime does not rely on that:
+  // whatever the host runs before onNavigate returns belongs to the chain, also
+  // after a navigation further down has returned.
+  it('counts every run made before onNavigate returns as part of the chain', () => {
+    const s = stack([onOpen(goTo(2)), onOpen(goTo(1))], (host) => {
+      host.refresh()
+    })
+    s.show(1)
+    expect(s.opened).toEqual([1, 2, 1, 1, 1])
+    expect(s.number()).toBe(1)
+    expect(s.status()).toBe(STOPPED)
+  })
+})
+
+// Task 18.4, requirement 7.6.
+describe('a handler that keeps asking for dialogs', () => {
+  it('shows ten: after ten presses of OK none is left and the status line says why the script stopped', () => {
+    const s = stack([onOpen('repeat forever\n    answer "hi"\n  end repeat')])
+    const error = 'Runtime error in openCard, line 3: too many answer dialogs (limit 10)'
+    expect(s.show(1).ok).toBe(false)
+    expect(s.status()).toBe(error)
+    for (let press = 1; press <= 10; press += 1) {
+      expect(s.q('answer-dialog')?.querySelector('p')?.textContent).toBe('hi')
+      expect(s.runtime.dialogOpen()).toBe(true)
+      s.q<HTMLButtonElement>('answer-ok')?.click()
+    }
+    expect(s.q('answer-dialog')).toBeNull()
+    expect(s.runtime.dialogOpen()).toBe(false)
+    expect(s.status()).toBe(error)
+    expect(s.opened).toEqual([1])
+  })
+})
+
+describe('a card whose stored script does not parse', () => {
+  const BROKEN = 'on openCard\n'
+  const FIXED = 'on openCard\n  put "fixed" into field "greeting"\nend openCard\n'
+
+  it('runs on the same mount once it is re-run with a script that parses', () => {
+    const { runtime, m, q } = setup()
+    const broken: Card = { ...card('hello'), script: BROKEN }
+    expect(runtime.run(broken, m).ok).toBe(false)
+    expect(q('status-line')?.textContent).toContain('Stored script does not parse')
+    const fixed: Card = { ...broken, script: FIXED }
+    expect(runtime.rerun(fixed)).toEqual({ ok: true, statements: 1 })
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
+    expect(runtime.currentProgram('hello')?.source).toBe(FIXED)
+  })
+
+  it('keeps the mount through a second script that does not parse, and after a script that did', () => {
+    const { runtime, m, q } = setup()
+    const hello = card('hello')
+    expect(runtime.run(hello, m).ok).toBe(true)
+    expect(runtime.rerun({ ...hello, script: BROKEN }).ok).toBe(false)
+    expect(runtime.rerun({ ...hello, script: 'on mouseUp\n' }).ok).toBe(false)
+    expect(q('status-line')?.textContent).toBe(
+      'Stored script does not parse (line 2, column 1: expected "end mouseUp", found end of script). Fix it on the back of the card.',
+    )
+    expect(q('field-greeting')).toBeNull()
+    expect(runtime.rerun({ ...hello, script: FIXED }).ok).toBe(true)
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
+  })
+
+  it('is forgotten on unmount, and a card that was never run is still refused', () => {
+    const { runtime, m } = setup()
+    runtime.run({ ...card('hello'), script: BROKEN }, m)
+    runtime.unmount('hello')
+    expect(() => runtime.rerun({ ...card('hello'), script: FIXED })).toThrow('card "hello" is not mounted')
+    expect(() => runtime.rerun(card('counter'))).toThrow('card "counter" is not mounted')
   })
 })

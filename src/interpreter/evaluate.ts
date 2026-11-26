@@ -11,7 +11,18 @@ export interface EvalContext {
   readonly variables: Map<string, string>
   /** The clicked button's name; '' inside openCard. */
   readonly target: string
+  /**
+   * Expression work done in this run (design.md §5.2). The interpreter gives
+   * every run a counter; without one nothing is counted.
+   */
+  readonly work?: { units: number }
 }
+
+/** How much expression work one run of a handler may do (requirement 7.9). */
+export const WORK_BUDGET = 1_000_000
+
+/** One unit of work per this many UTF-16 units of a value an expression yields. */
+export const WORK_UNIT_LENGTH = 256
 
 export interface EvalError extends Position {
   readonly message: string
@@ -41,7 +52,26 @@ export function formatTime(date: Date): string {
   return `${hour12}:${minutes} ${hours < 12 ? 'AM' : 'PM'}`
 }
 
+/**
+ * Evaluates one node. Every value an expression yields, at any depth, is at
+ * most MAX_VALUE_LENGTH long (grammar §7), and every node evaluated is charged
+ * to the run's work budget: one unit, plus one per WORK_UNIT_LENGTH of its value.
+ */
 export function evaluate(expression: Expression, context: EvalContext): EvalResult {
+  const work = context.work
+  if (work !== undefined) {
+    if (work.units >= WORK_BUDGET) return fail(expression, 'script ran too long')
+    work.units += 1
+  }
+  const result = evaluateNode(expression, context)
+  if (!result.ok) return result
+  const checked = checkLength(result.value)
+  if (!checked.ok) return fail(expression, checked.message)
+  if (work !== undefined) work.units += Math.floor(result.value.length / WORK_UNIT_LENGTH)
+  return result
+}
+
+function evaluateNode(expression: Expression, context: EvalContext): EvalResult {
   switch (expression.kind) {
     case 'number':
       return ok(expression.text)

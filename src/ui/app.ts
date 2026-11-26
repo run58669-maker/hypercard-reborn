@@ -20,10 +20,19 @@ export interface AppDeps {
 
 export interface App {
   readonly element: HTMLElement
-  /** Shows card number n (1-based) and runs it. Out of range is ignored. */
-  go(n: number): void
+  /**
+   * Shows card number n (1-based) and runs it. Out of range is ignored.
+   * `sentOnBy` is given when a script asked for the move: the ids of the cards
+   * whose `openCard` moved the stack on (design.md §5.7). Without it the move
+   * is the user's.
+   */
+  go(n: number, sentOnBy?: readonly string[]): void
   current(): Card | undefined
 }
+
+/** The text in front of the buttons of the notice (requirement 7.8). */
+export const MOVED_NOTICE =
+  'A script moved the stack here when a card opened. To change such a script, open its card without running its openCard handler: '
 
 export function createApp(root: HTMLElement, deps: AppDeps): App {
   const name = el('h2', { class: 'card-name', testid: 'card-name' })
@@ -49,8 +58,11 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
     testid: 'app-intro',
     text: 'HyperCard, 1987: every card carries its own script. Press Flip to read the script on the back of this card, or describe what the card should do in plain English and it rewrites itself.',
   })
+  // Names the cards whose openCard moved the stack on, each with a way to open it anyway (§5.7).
+  const movedNotice = el('p', { class: 'moved-notice', testid: 'moved-notice' })
+  movedNotice.hidden = true
   const stage = el('main', { class: 'stage' })
-  const element = el('div', { class: 'app' }, [header, intro, stage, settings.element])
+  const element = el('div', { class: 'app' }, [header, intro, movedNotice, stage, settings.element])
   settingsOpen.addEventListener('click', () => {
     settings.open()
   })
@@ -68,9 +80,40 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
   window.addEventListener('resize', rescale)
   queueMicrotask(rescale)
 
-  function go(n: number): void {
+  function showMoved(sentOnBy: readonly string[], showing: string): void {
+    const cards = deps.store.getCards()
+    const buttons: HTMLElement[] = []
+    for (const id of sentOnBy) {
+      const index = cards.findIndex((card) => card.id === id)
+      const sender = cards[index]
+      // The card that is showing can be flipped as it is.
+      if (sender === undefined || id === showing) continue
+      const button = el('button', {
+        testid: `open-held-${String(index + 1)}`,
+        text: `Card ${String(index + 1)}: ${sender.name}`,
+        title: `Open card ${String(index + 1)} without running its openCard handler`,
+      })
+      button.addEventListener('click', () => {
+        show(index + 1, [], true)
+      })
+      buttons.push(button)
+    }
+    movedNotice.hidden = buttons.length === 0
+    movedNotice.replaceChildren(
+      ...(buttons.length === 0
+        ? []
+        : [MOVED_NOTICE, ...buttons]),
+    )
+  }
+
+  function go(n: number, sentOnBy: readonly string[] = []): void {
+    show(n, sentOnBy, false)
+  }
+
+  function show(n: number, sentOnBy: readonly string[], held: boolean): void {
     const card = deps.store.getCardByNumber(n)
     if (card === undefined) return
+    showMoved(sentOnBy, card.id)
     view?.dispose()
     number = n
     const count = deps.store.getCards().length
@@ -84,6 +127,7 @@ export function createApp(root: HTMLElement, deps: AppDeps): App {
       provider: () => settings.provider(),
       loadCompiler,
       ...(deps.now === undefined ? {} : { now: deps.now }),
+      ...(held ? { held: true } : {}),
     })
     stage.replaceChildren(view.element)
     view.show()

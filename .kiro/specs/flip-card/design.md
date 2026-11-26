@@ -134,6 +134,11 @@ anything if it fails. This is the mechanism behind requirements 1.4 and 3.4: the
 "previous script" is kept simply because nothing replaced it. On success it sets
 `updatedAt` and `scriptOrigin`, persists, and notifies subscribers once.
 
+A change is delivered to the subscribers the store had when the change was made:
+`notify` iterates a copy of the set and skips a subscriber that has unsubscribed in the
+meantime. A subscriber added while a change is being delivered gets the next change,
+not this one. §5.6 says why that matters.
+
 ### 3.2 Seeded cards
 
 The six bundled cards (`examples/`, order = stack order) have these layouts. Every field
@@ -209,9 +214,67 @@ double quotes, structural positions are bare words.
 | Unknown property in `set` | `expected "visible", "enabled" or "name", found "x"` |
 | Block statement after single-line `then`/`else` | `a single-line if cannot contain "if" or "repeat"` |
 | Statement outside a handler | `expected "on", found "put"` |
+| More than 64 levels of nesting, or a chain of more than 64 operators (§4.4) | `expression too long or nested too deeply (limit 64)` |
 
 Positions: `line` and `column` are those of the offending token (`found Y`); for
 `duplicate handler` they point at the second `on`.
+
+### 4.4 Nesting limit (requirement 7.4, 7.5)
+
+The parser is recursive descent, and the interpreter, the printer and the object check
+(§6.8) all walk the tree recursively. A tree of unbounded depth overflows the JavaScript
+stack in every one of them, and a `RangeError` is not a `Failure`, so `parse` would throw.
+The parser therefore bounds the depth of the tree it builds:
+
+```ts
+export const MAX_NESTING = 64
+```
+
+`Cursor` keeps two numbers.
+
+- `depth`: the levels open around the current token. `enter(token)` adds one and
+  `leave()` subtracts one. `(`, `not`, unary `-`, a block `if` and a `repeat` enter at
+  their own token, and the right operand of every binary operator is parsed one level in.
+- `reached`: the deepest level reached since the innermost chain started.
+  `startChain()` sets it to `depth` and returns the enclosing chain's value;
+  `endChain(outer)` keeps the larger of the two.
+
+A left-associative chain builds its tree upwards: in `a + b + c` the node for the second
+`+` sits above the node for the first, which was finished earlier. An operator therefore
+cannot be charged against `depth`. `chainOperator(token)` charges it one level above
+everything its left operand reached, `reached + 1`.
+
+A level above `MAX_NESTING`, whether it comes from `enter` or from `chainOperator`, fails
+with `expression too long or nested too deeply (limit 64)` at that token. A `Failure`
+unwinds through `parse`, so neither number needs cleanup on the error path: a `Cursor`
+is used for one parse only.
+
+Why this bounds the tree. Write h(e) for the height of an expression: 0 for a literal, a
+variable or an object reference; 1 + h(inner) for `( )`, `not` and unary `-`;
+1 + max(h(left), h(right)) for a binary operator. If `e` starts at depth d, then when its
+parse returns `reached` is at least d + h(e). By induction: the left operand leaves
+`reached` at d + h(left) or more, the operator raises it to d + h(left) + 1, and the right
+operand, parsed at d + 1, raises it to d + 1 + h(right). Every level reached was checked,
+so d + h(e) is at most 64 for every expression in a script that parses, and d counts the
+blocks around it. A recursive walk therefore nests at most 64 levels of blocks and
+expressions, plus the fixed frames for the handler and the statement.
+
+The first draft of this section used a single counter that was released when a parsing
+function returned. That under-counts: a left operand's levels are released before the
+operators above it are counted, so 64 parentheses with operators after each closing one
+passed the check with a tree about 2,000 levels deep. A review and the implementation
+of task 18.1 both caught it before anything shipped.
+
+A long flat chain is refused too. `"a" & "b" & ...` with 65 operators is 65 levels,
+because its tree is 65 nodes deep on the left side, and the walkers recurse down that
+side. The message says "too long" for that reason, and `docs/grammar.md`, which is the
+body of the compile prompt (§6.5), states the limit so that a model spreads such an
+expression over several statements.
+
+Loops that do not deepen the tree (statements in a block, handlers in a script) pay
+nothing. A single-line `if` holds one simple statement and cannot hold a block (§4.3),
+so it adds a fixed frame and no level. `64` is far more than a hand-written card script
+nests and far below what an engine's stack holds (about 10 parser frames per level).
 
 ## 5. Interpreter
 
@@ -257,6 +320,18 @@ export function run(program: Program, handler: 'mouseUp' | 'openCard', host: Hos
   only `on mouseUp` opens silently).
 - Executes with a statement budget of 10,000: every statement node that begins
   executing decrements the budget; at 0 the run stops with `script ran too long`.
+- Executes with a dialog budget of 10 (requirement 7.6): the eleventh `answer` in one
+  run stops it with `too many answer dialogs (limit 10)`. Without it, `repeat forever`
+  around `answer` queues about 5,000 dialogs before the statement budget ends the run,
+  and every one of them has to be dismissed before Flip can be reached (§5.5).
+- Executes with a work budget of 1,000,000 units (requirement 7.9). The statement
+  budget counts statements, and one statement may hold an expression of thousands of
+  nodes. `evaluate` therefore charges every node it evaluates one unit, and one more
+  unit per 256 UTF-16 code units of the value the node yields, to a counter the run
+  owns (`EvalContext.work`); the node that would go over stops the run with
+  `script ran too long`. A script of the bundled kind spends a few units per
+  statement, so 10,000 statements stay far below it and end on the statement budget
+  as before. The worst run is bounded by both budgets together.
 - Variables live in a `Map<string, string>` keyed by lower-cased name, created per run.
 - Runtime errors stop the handler at the failing statement. Side effects already
   performed stay (a field already written stays written). The error is returned, never
@@ -272,8 +347,10 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
   `Number()`. Rendering: if the result is an integer with magnitude below 1e21,
   `String(n)`; otherwise `n.toFixed(6)` with trailing zeros and a trailing `.` removed.
   Non-finite results are the runtime error `number out of range`.
-- Every produced value is checked against the 64 KiB limit at the point it is produced
-  (`&`, `&&`, arithmetic rendering, `put`); exceeding it is `value too long`.
+- Every value an expression node yields is checked against the 64 KiB limit in
+  `evaluate`, at every depth and wherever the value is used (a literal, a field read,
+  `&`, `&&`, arithmetic, the value of `put`, `get`, `answer` and `set name`);
+  exceeding it is `value too long` at that node (requirement 7.9).
 - Booleans are the lower-case strings `true` / `false`; accepted case-insensitively.
 
 ### 5.4 Runtime error messages
@@ -288,7 +365,8 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
 | `set enabled of field` | `field "x" has no enabled property` |
 | `go to card` out of range | `card 7 does not exist` (the number after truncation) |
 | `go to card` with a non-number | `expected a number, found "abc"` |
-| Statement budget exhausted | `script ran too long` |
+| Statement budget or work budget exhausted | `script ran too long` |
+| Eleventh `answer` in one run | `too many answer dialogs (limit 10)` |
 | Value over 64 KiB | `value too long` |
 
 ### 5.5 Deferred effects
@@ -296,13 +374,130 @@ Exactly as in `docs/grammar.md` §4, with these implementation decisions:
 The interpreter is synchronous. The `DomHost` queues `answer` dialogs and remembers at
 most one `goToCard` request (the last one wins). After `run` returns, `CardRuntime`:
 
-1. shows the runtime error in the status line, if any;
+1. shows the runtime error in the status line, if any, and in that case forgets the
+   recorded `goToCard`: a handler that stopped with an error does not move the stack,
+   so the error stays in front of the user;
 2. shows the queued dialogs one at a time (`<dialog data-testid="answer-dialog">`, an
-   OK button, Enter closes); while a dialog is open the card's buttons are inert;
+   OK button, Enter closes); while a dialog is open the card's buttons are inert. The
+   dialog's `close` event counts as OK, so a dialog the browser closed without a
+   `cancel` event does not leave the buttons inert;
 3. after the last dialog is dismissed, if a `goToCard` was recorded, navigates to that
    card (§7.1), which runs it.
 
 So the quiz card shows "Correct!", and only when OK is pressed does card 2 open.
+
+### 5.6 Scripted navigation chains (requirement 7.1 to 7.3, 7.7)
+
+Step 3 of §5.5 is synchronous: `onNavigate` shows the next card, which sends its
+`openCard`, which may ask to navigate again. A card whose `openCard` sends the stack to
+itself, or two cards that send it to each other, recurse until the stack overflows.
+
+`CardRuntime` stops such a chain. It needs no change to its options or to the app shell,
+because it can tell a run it caused from a run the user caused:
+
+```ts
+let scriptedDepth = 0                 // > 0 while one of our own onNavigate calls is on the stack
+const movedOn = new Set<string>()     // ids of cards whose openCard already moved the stack on in this chain
+
+export const MAX_SCRIPTED_MOVES = 16
+export const NAVIGATION_LOOP_MESSAGE =
+  'Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.'
+```
+
+- **A new chain starts** (`movedOn.clear()`) on every user action: `run()`, `rerun()` and
+  a button click (the host's `onButtonClick` and `click()`), each only while
+  `scriptedDepth === 0`, before the handler is sent. A `run()` that happens while
+  `scriptedDepth > 0` is part of the current chain and clears nothing.
+- **When the dialogs are drained** and a `goToCard` is recorded:
+  - the request came from `mouseUp`: navigate;
+  - the request came from `openCard`, the card's id is not in `movedOn`, and `movedOn`
+    holds fewer than `MAX_SCRIPTED_MOVES` ids: add it, navigate;
+  - otherwise: drop the request, set the status line to `NAVIGATION_LOOP_MESSAGE`, do not
+    call `onNavigate`.
+- **Navigate** means `scriptedDepth += 1; try { options.onNavigate(n) } finally { scriptedDepth -= 1 }`.
+  A depth, not a flag, because the calls nest.
+
+`send` has to pass the handler name down to the drain, including the drain that runs
+later from a dialog's close callback. Dismissing a dialog is not a user action: the
+chain that queued the dialog continues, so `answer "hi"` followed by `go to card 1` in
+card 1's `openCard` shows the dialog twice and then stops.
+
+Why this rule:
+
+- A card's live state is rebuilt from its layout on every run (§5.5, glossary "Run"),
+  and the only other thing a script can read that differs between two runs is the clock
+  (`the time`, `the date`). So an `openCard` that moved the stack on once will, in
+  practice, do it again when the stack returns with no user action in between. The
+  runtime does not try to prove that. It stops the second request and says what it did;
+  the message does not claim the script would never have settled.
+- The cap of 16 covers what the repeat check cannot. A stack of many cards that each
+  send the stack to the next never repeats a card, every move nests about a dozen calls
+  (`go`, `show`, `run`, `send`, `drain`, `onNavigate`), and `loadCards` puts no limit on
+  the number of cards, so a long enough stack would still overflow. Sixteen is more than
+  twice the bundled stack.
+- A cap alone would let a self-loop show sixteen rounds of its dialogs before it stops;
+  the repeat check stops it after two.
+- Making `go to` the current card a no-op changes what a button's `go to card 1` on
+  card 1 does today (it re-runs the card), and does nothing for a two-card loop.
+- Deferring the move to a later task turns the crash into an endless flicker.
+
+After a stop the card that got the stack last is mounted and showing, with the message
+in its status line. Any user action starts a new chain, which ends after at most 17
+moves (one from a button and 16 from `openCard` handlers), so the page always comes to
+rest and Flip is always reachable (requirement 7.2). The message is cleared like any
+status text: by the next run.
+
+**Committing a looping script.** `commitScript` notifies the store's subscribers, the
+card's view re-runs the card, the chain moves the stack, and `app.go` disposes that view
+and subscribes a new one, all inside the one notification. The store therefore delivers
+each change to the subscribers it had when the change was made (§3.1). Iterating the
+live set would hand the same change to the new view, which would re-run the card, which
+would move the stack again; and since a `rerun()` at depth 0 starts a new chain, nothing
+would ever stop it. With the copy, the new view is simply left showing the message: its
+`run()` happened at `scriptedDepth > 0`, inside the chain the commit started.
+
+**A card whose stored script does not parse** (requirement 7.7) has no `Mounted` entry,
+because nothing runs. The runtime still remembers its `CardMount`, so that the `rerun()`
+that follows a successful commit on its back can mount the card and run it. `unmount()`
+forgets it.
+
+### 5.7 Opening a card that sends the stack away (requirement 7.8)
+
+§5.6 stops a chain that repeats. It does not help with a card whose `openCard` moves the
+stack on once: `go to card 1` in card 2's `openCard`. Every way of showing card 2 then
+ends on card 1, no card asks twice, nothing stops, and card 2 can never be flipped. With
+Previous and Next as the only navigation, cards 3 to 6 are cut off as well. A second
+review (GPT, reading the code) found this.
+
+Such a script is legal and may be what its author wants, so the move is still performed
+(requirement 7.3). What the design adds is a way to open the card without running it:
+
+- `onNavigate(n, sentOnBy)` gets a second argument: the ids in `movedOn`, in order, at
+  the moment of the move. It is empty for a move a button asked for.
+- The app shell keeps `<p data-testid="moved-notice">` between the introduction and the
+  card. `app.go(n)` called by the user (Previous, Next, arrow keys) passes no list and
+  hides it. `app.go(n, sentOnBy)` called through `onNavigate` shows it with the text
+  `MOVED_NOTICE` and one button per card in the list, except the card that is showing,
+  which can be flipped as it is (so a self-loop stopped by §5.6 gets no notice). The
+  buttons are `data-testid="open-held-<n>"`, labelled `Card <n>: <name>`.
+- Pressing such a button shows that card **held**: `CardRuntime.hold(card, mount)`
+  mounts it like `run` (objects rendered, buttons live) and does not send `openCard`.
+  A stored script that does not parse is reported as in §5.6 instead: no objects, the
+  stored-script message, and the editor on the back. The status line reads `HELD_MESSAGE`, and the card
+  is shown on its back, where the script is. Holding is a user action: it starts a new
+  chain and hides the notice.
+- A held card is an ordinary mounted card. Committing a changed script that parses
+  re-runs it (§8; a Commit of the unchanged draft does nothing); if the new script
+  still sends the stack on, the stack moves and the notice is shown again, without the
+  card left showing. Next
+  and Previous work from it, which is how the cards behind it are reached.
+
+The other design considered was a global "pause scripts" switch that makes Previous and
+Next stop sending `openCard` (the reviewer's proposal). It was not taken: the person has
+to find the switch before they know why the stack jumped, a commit made while paused
+either breaks requirement 3.2 or jumps anyway, and a forgotten switch leaves every card
+looking broken. The notice appears at the moment of the jump, on the card the person
+landed on, and names the card that did it.
 
 ## 6. Compile-once pipeline
 
@@ -654,6 +849,7 @@ change here first.
 | Card root, front face, back face | `card`, `card-front`, `card-back` |
 | Flip control (both faces) | `flip` |
 | Header | `card-name`, `card-position`, `card-prev`, `card-next`, `settings-open` |
+| Notice (§5.7) | `moved-notice`, `open-held-<n>` (`n` is the card number) |
 | First-visit copy (§7.1) | `app-intro`, `flip-hint` |
 | Front-face objects | `field-<name>`, `button-<name>` (name lower-cased, spaces to `-`) |
 | Status line, message box | `status-line`, `message-box` |

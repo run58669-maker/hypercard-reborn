@@ -16,6 +16,8 @@ export interface CardViewDeps {
   readonly provider: () => ProviderChoice
   readonly loadCompiler: LoadCompiler
   readonly now?: () => Date
+  /** Mount the card without running its `openCard` and show its back (design.md §5.7). */
+  readonly held?: boolean
 }
 
 export type Face = 'front' | 'back'
@@ -80,6 +82,12 @@ export function createCardView(card: Card, deps: CardViewDeps): CardView {
     card,
     back,
     show() {
+      if (deps.held === true) {
+        deps.runtime.hold(card, front.mount)
+        back.render(latest())
+        setFace('back')
+        return
+      }
       deps.runtime.run(card, front.mount)
       back.render(latest())
     },
