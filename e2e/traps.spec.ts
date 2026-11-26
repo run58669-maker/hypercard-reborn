@@ -123,3 +123,57 @@ test('a script that keeps asking for dialogs shows ten of them and then lets go 
 
   expect(errors).toEqual([])
 })
+
+// Requirement 7.8 (task 18.7): a card whose openCard moves the stack on once never trips the stop.
+test('a card that sends the stack away is named in a notice and can be opened and fixed without running it', async ({ page }) => {
+  const errors = await open(page)
+  const AWAY = 'on openCard\n  go to card 1\nend openCard\n'
+  const STAYS = 'on openCard\n  put "7" into field "count"\nend openCard\n'
+
+  await expect(page.getByTestId('moved-notice')).toBeHidden()
+  await page.getByTestId('card-next').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 2 of 6')
+  await flipTo(page, 'back')
+  await commit(page, AWAY)
+
+  // The commit moved the stack to card 1, and Next brings it straight back.
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+  await expect(page.getByTestId('moved-notice')).toBeVisible()
+  await page.getByTestId('card-next').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+  await expect(page.getByTestId('open-held-2')).toHaveText('Card 2: Counter')
+
+  // Also after a reload, where the notice is gone until the stack jumps again.
+  await page.reload()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+  await expect(page.getByTestId('moved-notice')).toBeHidden()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+
+  // The button opens card 2 on its back; its openCard did not run.
+  await page.getByTestId('open-held-2').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 2 of 6')
+  await expect(page.getByTestId('card')).toHaveAttribute('data-face', 'back')
+  await expect(page.getByTestId('stored-script')).toHaveText(AWAY)
+  await expect(page.getByTestId('moved-notice')).toBeHidden()
+
+  // The cards behind it are reachable again.
+  await page.getByTestId('card-next').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 3 of 6')
+  await page.getByTestId('card-prev').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 1 of 6')
+
+  // And the script can be changed there.
+  await page.getByTestId('open-held-2').click()
+  await commit(page, STAYS)
+  await expect(page.getByTestId('card-position')).toHaveText('Card 2 of 6')
+  await flipTo(page, 'front')
+  await expect(page.getByTestId('status-line')).toHaveText('')
+  await expect(page.getByTestId('field-count')).toHaveValue('7')
+  await page.getByTestId('card-prev').click()
+  await page.getByTestId('card-next').click()
+  await expect(page.getByTestId('card-position')).toHaveText('Card 2 of 6')
+  await expect(page.getByTestId('moved-notice')).toBeHidden()
+
+  expect(errors).toEqual([])
+})
