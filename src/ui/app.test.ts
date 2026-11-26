@@ -359,3 +359,140 @@ describe('createApp keyboard handler', () => {
     expect(q<HTMLTextAreaElement>('script-editor')?.value).toBe('on mouseUp\nend mouseUp')
   })
 })
+
+// Task 18.3: requirements 7.1, 7.2 and 7.7 through the real app, store and
+// runtime (design.md §5.6). Before the task the first two cases ended in
+// "RangeError: Maximum call stack size exceeded" and the page never drew.
+
+const STOPPED = 'Stopped: openCard scripts kept sending the stack from card to card. Flip the card to fix its script.'
+const SELF_LOOP = 'on openCard\n  go to card 1\nend openCard'
+const FIXED = 'on openCard\n  put "fixed" into field "greeting"\nend openCard'
+
+/** The seeded stack with the given scripts (by card number) in place of the bundled ones, as if read from storage. */
+function appWith(scripts: Record<number, string>) {
+  const cards = seedCards(NOW).map((card, index) => {
+    const script = scripts[index + 1]
+    return script === undefined ? card : { ...card, script }
+  })
+  const store = createCardStore({ initial: cards, now: () => NOW })
+  /** The ids of the cards whose openCard ran, in order. */
+  const opened: string[] = []
+  const runtime = createCardRuntime({
+    cardCount: () => store.getCards().length,
+    onNavigate: (n) => { app.go(n) },
+    onResult: (id, handler) => {
+      if (handler !== 'openCard') return
+      opened.push(id)
+      // A chain nothing stops ends here and not in a stack overflow or an endless loop.
+      if (opened.length > 200) throw new Error('openCard ran more than 200 times')
+    },
+    now: () => NOW,
+  })
+  const root = document.createElement('div')
+  document.body.replaceChildren(root)
+  const app = createApp(root, {
+    store,
+    runtime,
+    storage: fakeStorage(),
+    now: () => NOW,
+    loadCompiler: () => Promise.reject(new Error('compiler not loaded in this test')),
+  })
+  const q = <T extends HTMLElement>(testid: string) => root.querySelector<T>(`[data-testid="${testid}"]`)
+
+  /** Flips to the back of the card if needed, types the draft and presses Commit. */
+  function commit(script: string): void {
+    if (q('card')?.dataset['face'] !== 'back') q<HTMLButtonElement>('flip')?.click()
+    const editor = q<HTMLTextAreaElement>('script-editor')
+    const button = q<HTMLButtonElement>('commit-script')
+    if (editor === null || button === null) throw new Error('no editor on the card that is showing')
+    editor.value = script
+    button.click()
+  }
+
+  return { app, store, q, opened, commit }
+}
+
+describe('a script that keeps sending the stack on', () => {
+  it('comes to rest on a card that sends the stack to itself, and Flip, Next and Previous go on working', () => {
+    const { app, q, opened } = appWith({ 1: SELF_LOOP })
+    app.go(1)
+    expect(opened).toEqual(['hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card')?.dataset['face']).toBe('back')
+    expect(q('stored-script')?.textContent).toBe(SELF_LOOP)
+    q<HTMLButtonElement>('flip')?.click()
+    expect(q('card')?.dataset['face']).toBe('front')
+    expect(opened).toEqual(['hello', 'hello'])
+
+    q<HTMLButtonElement>('card-next')?.click()
+    expect(q('card-position')?.textContent).toBe('Card 2 of 6')
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-count')?.value).toBe('0')
+
+    q<HTMLButtonElement>('card-prev')?.click()
+    expect(opened).toEqual(['hello', 'hello', 'counter', 'hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+  })
+
+  it('comes to rest on the first of two cards that send the stack to each other', () => {
+    const { app, q, opened } = appWith({
+      1: 'on openCard\n  go to card 2\nend openCard',
+      2: 'on openCard\n  go to card 1\nend openCard',
+    })
+    app.go(1)
+    expect(opened).toEqual(['hello', 'counter', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('card-name')?.textContent).toBe('Hello')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    expect(document.querySelectorAll('[data-testid="card"]')).toHaveLength(1)
+  })
+
+  it('clears the message when a script without the go is committed on the back of the card', () => {
+    const { app, q, opened, commit } = appWith({ 1: SELF_LOOP })
+    app.go(1)
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    commit(FIXED)
+    expect(opened).toEqual(['hello', 'hello', 'hello'])
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
+    expect(q('stored-script')?.textContent).toBe(FIXED)
+  })
+
+  it('stops a self-loop committed through the editor: Commit returns, card 1 shows, openCard ran twice', () => {
+    const { app, q, opened, commit } = appWith({})
+    app.go(1)
+    expect(opened).toEqual(['hello'])
+    commit(SELF_LOOP)
+    expect(opened).toEqual(['hello', 'hello', 'hello'])
+    expect(q('card-position')?.textContent).toBe('Card 1 of 6')
+    expect(q('status-line')?.textContent).toBe(STOPPED)
+    expect(q('stored-script')?.textContent).toBe(SELF_LOOP)
+    expect(document.querySelectorAll('[data-testid="card"]')).toHaveLength(1)
+
+    // The way out the message names: flip, fix the script, commit.
+    commit(FIXED)
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
+    expect(opened).toHaveLength(4)
+  })
+
+  it('runs a card whose stored script did not parse once a script that parses is committed on its back', () => {
+    // 200 nested parentheses parsed before the limit of task 18.1, so a browser may have stored this.
+    const deep = `on openCard\n  put ${'('.repeat(200)}1${')'.repeat(200)} into field "greeting"\nend openCard`
+    const { app, q, opened, commit } = appWith({ 1: deep })
+    app.go(1)
+    expect(opened).toEqual([])
+    expect(q('status-line')?.textContent).toBe(
+      'Stored script does not parse (line 2, column 71: expression too long or nested too deeply (limit 64)). Fix it on the back of the card.',
+    )
+    commit(FIXED)
+    expect(opened).toEqual(['hello'])
+    expect(q('status-line')?.textContent).toBe('')
+    expect(q<HTMLTextAreaElement>('field-greeting')?.value).toBe('fixed')
+    expect(q('stored-script')?.textContent).toBe(FIXED)
+  })
+})

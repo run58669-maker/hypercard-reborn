@@ -25,8 +25,16 @@ export function createCardStore(options: CardStoreOptions): CardStore {
   const persist = options.persist ?? (() => undefined)
   const seed = options.seed ?? (() => options.initial)
 
+  /**
+   * Delivers `change` to the subscribers the store has now (design.md §3.1). A
+   * subscriber may subscribe others or unsubscribe them while it handles the
+   * change (re-running a card can replace its view, §5.6): one added meanwhile
+   * gets the next change, and one removed meanwhile is not called.
+   */
   function notify(change: StoreChange): void {
-    for (const listener of listeners) listener(change)
+    for (const listener of [...listeners]) {
+      if (listeners.has(listener)) listener(change)
+    }
   }
 
   function require(id: string): { card: Card; index: number } {
